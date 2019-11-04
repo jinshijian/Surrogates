@@ -1,0 +1,24 @@
+# specific files ignored
+.Rhistory
+.RData
+Surrogates.html
+Surrogates.docx
+
+# file or dir in this file will be ignored
+# data/
+EcologicalModelling/
+Old/
+outputs/
+.Rproj.user/
+Manuscript/
+
+# ignore all files in any directory named Manuscript/SHDB_cash*SHDB/files
+Surrogates_cache/
+Surrogates_files/
+
+# ignore all .ini
+*.ini
+
+# project path
+# /G/My\ Drive/MyResearch/17.DGRsD/GlobalRsProject3
+.Rproj.user
