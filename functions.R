@@ -1,11 +1,80 @@
 
 #*****************************************************************************************************************
-# function 1 - Plot Rs~Tsoil and Tair
+# functions for drake
 #*****************************************************************************************************************
 
-t_model_sum <- function () {
+# Data processing function for srdb - group biome, ecosystem_type, leaf_habit, and soil_drainage
+make_groups_srdb <- function(sdata) {
+  sdata %>% 
+    mutate(Biome_group = case_when(Biome == "Boreal" ~ "Boreal"
+                                   ,Biome == "Temperate" ~ "Temperate"
+                                   ,Biome == "Arctic" | Biome == "Polar" ~ "Arctic"
+                                   ,Biome == "Tropical" ~ "Tropical"
+                                   ,Biome == "Mediterranean" ~ "Mediterranean"
+                                   ,Biome == "Subtropical" | Biome == "Subtropic" ~ "Subtropical"
+                                   ,TRUE ~ "Not reported")) %>%
+    mutate(Ecosystem_group = case_when(Ecosystem_type == "" ~ "Not reported"
+                                       , Ecosystem_type == "Bare" | Ecosystem_type == "Bare land" | Ecosystem_type == "Bare soil" ~ "BSV"
+                                       , Ecosystem_type == "Desert" ~ "Desert"
+                                       , Ecosystem_type %in% c("Forest", "Natural")  ~ "Forest"
+                                       , Ecosystem_type %in% c("Garden", "Orchard", "Plantation")  ~ "Plantation"
+                                       , Ecosystem_type %in% c("Grassland", "Pasture", "Meadow") ~ "Grassland"
+                                       , Ecosystem_type == "Peatland" ~ "Peatland"
+                                       , Ecosystem_type == "Savanna" ~ "Savanna"
+                                       , Ecosystem_type %in% c("Shrubland", "Woodland")  ~ "Shrubland"
+                                       , Ecosystem_type == "Tundra" ~ "Tundra"
+                                       , Ecosystem_type == "Urban" ~ "Urban"
+                                       , Ecosystem_type == "Wetland" ~ "Wetland"
+                                       , TRUE ~ "Agriculture")) %>%
+    mutate(Leaf_group = case_when (Leaf_habit == "Deciduous" ~ "Deciduous"
+                                   , Leaf_habit %in% c("Evergreen", "Evergreen broadleaf")  ~ "Evergreen"
+                                   , Leaf_habit %in% c("Mixed", "Mixed of evergreen and deciduous") ~ "Mixed"
+                                   , TRUE ~ "Not reported" )) %>% 
+    mutate(Drainage_group = case_when (Soil_drainage == "Dry" ~ "Dry"
+                                       , Soil_drainage %in% c("Wet")  ~ "Wet"
+                                       , Soil_drainage %in% c("Mixed", "Medium") ~ "Medium"
+                                       , TRUE ~ "Not reported")) -> sdata
+  
+  return(sdata)
+}
+
+
+# Data processing function for DGRsD - group biome, ecosystem_type, leaf_habit, and soil_drainage
+make_groups_dgrsd <- function(sdata) {
+  # DGRsD data processing
+  # Group climate
+  sdata %>% mutate(Climate_type = case_when(
+    Climate %in% c("Af", "Am", "As", "Aw") ~ "(A) Tropic",
+    Climate %in% c("BSh", "BSk", "BWh", "BWk") ~ "(B) Arid",
+    Climate %in% c("Dfa", "Dfb", "Dfc", "Dsc", "Dwa", "Dwb", "Dwc", "EF", "ET") ~ "(D) Continental", 
+    TRUE ~ "(C) Temperate")) -> sdata
+  sdata$Ecosystem_type <- ifelse(is.na(sdata$Ecosystem_type), "Not available", sdata$Ecosystem_type)
+  
+  return(sdata)
+}
+
+# remove rows when soil temperature is null
+rm_dgrsd_ts_null <- function (sdata) {
+  sdata %>% filter(!is.na(Tsoil) & !is.na(Tm_Del) & !is.na(RS_Norm)) -> sdata
+  return(sdata)
+}
+
+# remove rows when soil water content is null
+rm_dgrsd_swc_null <- function (sdata) {
+  sdata %>% filter(SWC_Type == "VWC" | SWC_Type == "GWC") %>% filter (!is.na(SWC) & !is.na(Pm_Del) & !is.na(RS_Norm)) -> sdata
+  return(sdata)
+}
+
+#*****************************************************************************************************************
+# functions for air temperature (Tm) as surrogate of soil temperature (Ts) in Rs modeling
+# For each site (using for loop), first plot scatter plot of Tm vs Rs, and Ts vs Rs and print in pdf file
+# The using 
+#*****************************************************************************************************************
+
+t_model_sum <- function (DGRsD_TS) {
   
   # test question 1: whether Ts is good surrogate for Ta?
+  # plot Tair vs Rs, Ts vs Rs relationship by site and plot at 'SI-1. Tair for Tsoil.pdf'
   pdf( paste(OUTPUT_DIR,'SI-1. Tair for Tsoil.pdf', sep = "/" ), width=8, height=4)
   par( mar=c(2, 0.2, 0.2, 0.2)
        , mai=c(0.6, 0.7, 0.0, 0.1)  # by inches, inner margin
@@ -31,13 +100,20 @@ t_model_sum <- function () {
       
       if (nrow(sub_site) < 6) {next} else {
         
-        # first order lm model
+        # Ts vs Rs: first order lm model
         first_lm <- lm(RS_Norm ~ Tsoil, data = sub_site)
         first_a <- summary(first_lm)$coefficients[1,1] %>% round(6)
         first_b <- summary(first_lm)$coefficients[2,1] %>% round(6)
         p_b <- summary(first_lm)$coefficients[2,4]%>% round(6)
         first_R2 <- summary(first_lm)$r.squared %>% round(6)
         obs <- nrow(sub_site)
+        
+        # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89. 
+        sub_site %>% mutate(slr_pred = predict(first_lm), slr_resid = residuals(first_lm), slr_S_M = (slr_pred-RS_Norm)) -> sub_site
+        slr_E <- round(sum(sub_site$slr_S_M) / obs, 6)
+        slr_RMSE <- (sum(sub_site$slr_S_M^2) / obs)^0.5 %>% round(3)
+        slr_d <- (1- sum(sub_site$slr_S_M^2)/sum((abs(sub_site$slr_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$slr_pred)))^2)) %>% round(3)
+        slr_EF <- 1 - sum(sub_site$slr_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
         
         # polynomial model
         poly_lm <- lm(RS_Norm ~ Tsoil + I(Tsoil^2), data = sub_site)
@@ -48,14 +124,20 @@ t_model_sum <- function () {
         p_c <- summary(poly_lm)$coefficients[3,4] %>% round(6)
         poly_R2 <- summary(poly_lm)$r.squared %>% round(6)
         
+        # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
+        sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-RS_Norm)) -> sub_site
+        poly_E <- round(sum(sub_site$poly_S_M) / obs, 6)
+        poly_RMSE <- (sum(sub_site$poly_S_M^2) / obs)^0.5 %>% round(3)
+        poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pred)))^2)) %>% round(3)
+        poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        
         # plot all study-site Ts vs Rs results
         plot(sub_site$RS_Norm ~ sub_site$Tsoil
              , main = ""
              , xlab = ""
              , ylab = ""
              , pch = 16
-             , col = "gray"
-        )
+             , col = "gray" )
         
         # add SLR curve
         curve( first_a + first_b * x, min(sub_site$Tsoil), max(sub_site$Tsoil), col = "black", lty = 3, lwd = 2, add = T )
@@ -66,26 +148,41 @@ t_model_sum <- function () {
         mtext(side = 2, text = expression(Soil~respiration~"("~g~C~m^{-2}~day^{-1}~")"), line = 2.0, cex=1.0, outer = F, las = 0)
         
         
-        # plot all study-site Ta vs Rs results ****************************************************************
-        # first order lm model of SWC ~ Pm
+        # Built statistic models and output statistic parameters ***************************************************
+        
+        # first order lm model of Tair ~ Rs
         first_Tm <- lm(RS_Norm ~ Tm_Del, data = sub_site)
         first_Tm_a <- summary(first_Tm)$coefficients[1,1] %>% round(6)
         first_Tm_b <- summary(first_Tm)$coefficients[2,1] %>% round(6)
         p_Tm_b <- summary(first_Tm)$coefficients[2,4]%>% round(6)
         first_Tm_R2 <- summary(first_Tm)$r.squared %>% round(6)
         
-        # polynomial equation of SWC~Pm
+        # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89. 
+        sub_site %>% mutate(slr_Tm_pred = predict(first_Tm), slr_Tm_resid = residuals(first_Tm), slr_Tm_S_M = (slr_Tm_pred-RS_Norm)) -> sub_site
+        slr_Tm_E <- round(sum(sub_site$slr_Tm_S_M) / obs, 6)
+        slr_Tm_RMSE <- (sum(sub_site$slr_Tm_S_M^2) / obs)^0.5 %>% round(3)
+        slr_Tm_d <- (1- sum(sub_site$slr_Tm_S_M^2)/sum((abs(sub_site$slr_Tm_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$slr_Tm_pred)))^2)) %>% round(3)
+        slr_Tm_EF <- 1 - sum(sub_site$slr_Tm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        
+        # polynomial equation of Tair vs Rs
         # poly_pm <- try(lm(RS_Norm ~ poly(Pm_Del,2) , data = sub_site))
         poly_Tm <- try(lm(RS_Norm ~ Tm_Del + I(Tm_Del^2), data = sub_site))
         poly_parameter_c <- try(summary(poly_Tm)$coefficients[3,1] )
         
+        # error handle, sometimes there are no polynomial model can be simulated, then set model parameters to NA
         if (is(poly_Tm, "try-error") | is(poly_parameter_c, "try-error")) {
           poly_Tm_a <- NA
           poly_Tm_b <- NA
           poly_Tm_c <- NA
           p_poly_Tm_b <- NA
           p_pm_c <- NA
-          poly_Tm_R2 <- NA } 
+          poly_Tm_R2 <- NA 
+          
+          poly_Tm_E <- NA
+          poly_Tm_RMSE <- NA
+          poly_Tm_d <- NA
+          poly_Tm_EF <- NA } 
+        
         else {
           poly_Tm_a <- summary(poly_Tm)$coefficients[1,1] %>% round(6)
           poly_Tm_b <- summary(poly_Tm)$coefficients[2,1] %>% round(6)
@@ -94,13 +191,28 @@ t_model_sum <- function () {
           p_Tm_c <- summary(poly_Tm)$coefficients[3,4] %>% round(6)
           poly_Tm_R2 <- summary(poly_Tm)$r.squared %>% round(6) 
           
+          # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
+          sub_site %>% mutate(poly_Tm_pred = predict(poly_Tm), poly_resid = residuals(poly_Tm), poly_Tm_S_M = (poly_Tm_pred-RS_Norm)) -> sub_site
+          poly_Tm_E <- round(sum(sub_site$poly_Tm_S_M) / obs, 6)
+          poly_Tm_RMSE <- (sum(sub_site$poly_Tm_S_M^2) / obs)^0.5 %>% round(3)
+          poly_Tm_d <- (1- sum(sub_site$poly_Tm_S_M^2)/sum((abs(sub_site$poly_Tm_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_Tm_pred)))^2)) %>% round(3)
+          poly_Tm_EF <- 1 - sum(sub_site$poly_Tm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+          
           lm_sum = data.frame(sub_site$Study_number[1], sub_site$Measure_Year[1], var_site[j]
                               , first_a, first_b, p_b, first_R2
+                              , slr_E,  slr_RMSE, slr_d, slr_EF
+                              
                               , poly_a, poly_b, p_poly_b, poly_c, p_c, poly_R2
+                              , poly_E, poly_RMSE, poly_d, poly_EF
+                              
                               , first_Tm_a, first_Tm_b, p_Tm_b, first_Tm_R2
+                              , slr_Tm_E, slr_Tm_RMSE, slr_Tm_d, slr_Tm_EF
+                              
                               , poly_Tm_a, poly_Tm_b, p_poly_Tm_b, poly_Tm_c, p_Tm_c, poly_Tm_R2
-                              , obs)
+                              , poly_Tm_E, poly_Tm_RMSE, poly_Tm_d, poly_Tm_EF
+                              , obs )
           
+          # output all statistic results to "t_results"
           t_results = rbind(t_results, lm_sum)
           
         }
@@ -112,7 +224,7 @@ t_model_sum <- function () {
              , pch = 16
              , col = "gray" )
         
-        # add SLR curve
+        # add simple linear model and polynomial model curves
         curve( first_Tm_a + first_Tm_b * x, min(sub_site$Tm_Del), max(sub_site$Tm_Del), col = "black", lty = 3, lwd = 2, add = T )
         # add polynomial curve, predict y using modp
         curve (poly_Tm_a + poly_Tm_b * x + poly_Tm_c * x^2, min(sub_site$Tm_Del), max(sub_site$Tm_Del), col = "black", lty = 1, lwd = 2, add = T)
@@ -120,7 +232,6 @@ t_model_sum <- function () {
         mtext(side = 1, text = expression(Air~temperature~"("~degree~C~")"), line = 1.75, cex=1, outer = F)
         mtext(side = 2, text = expression(Soil~respiration~"("~g~C~m^{-2}~day^{-1}~")"), line = 2.0, cex=1.0, outer = F, las = 0)
         mtext(side = 3, text = paste0("Study=", var_study[i], ", Site=", var_site[j]), line = 0.75, cex=1.0, outer = T, las = 0)
-        
       }
       print(paste0("*****", i, "-----", j))
     }
@@ -128,17 +239,17 @@ t_model_sum <- function () {
   
   dev.off()
   return (t_results)
-  
 }
 
 
 #*****************************************************************************************************************
-# function 2: Plot Rs~swc and Pm
+# function for precipitation surrogates
 #*****************************************************************************************************************
 
-pm_model_sum <- function () {
+pm_model_sum <- function (DGRsD_SWC) {
   
   # test question 2: wheterh pm is good surrogate of vwc
+  # plot Precipitation vs Rs, SWC vs Rs relationship by site and plot at 'SI-1. Tair for Tsoil.pdf'
   pdf( paste(OUTPUT_DIR,'SI-2. Pm for vwc.pdf', sep = "/" ), width=8, height=4)
   
   par( mar=c(2, 0.2, 0.2, 0.2)
@@ -167,7 +278,7 @@ pm_model_sum <- function () {
       
       if (nrow(sub_site) < 6) {next} else {
         
-        # first order lm model
+        # swc vs Rs: simple linear regression
         first_lm <- lm(RS_Norm ~ SWC, data = sub_site)
         first_a <- summary(first_lm)$coefficients[1,1] %>% round(6)
         first_b <- summary(first_lm)$coefficients[2,1] %>% round(6)
@@ -175,7 +286,15 @@ pm_model_sum <- function () {
         first_R2 <- summary(first_lm)$r.squared %>% round(6)
         obs <- nrow(sub_site)
         
-        # polynomial model
+        # swc vs Rs
+        # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89. 
+        sub_site %>% mutate(slr_pred = predict(first_lm), slr_resid = residuals(first_lm), slr_S_M = (slr_pred-RS_Norm)) -> sub_site
+        slr_E <- round(sum(sub_site$slr_S_M) / obs, 6)
+        slr_RMSE <- (sum(sub_site$slr_S_M^2) / obs)^0.5 %>% round(3)
+        slr_d <- (1- sum(sub_site$slr_S_M^2)/sum((abs(sub_site$slr_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$slr_pred)))^2)) %>% round(3)
+        slr_EF <- 1 - sum(sub_site$slr_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+          
+        # swc vs Rs: polynomial model
         poly_lm <- lm(RS_Norm ~ SWC + I(SWC^2), data = sub_site)
         poly_a <- summary(poly_lm)$coefficients[1,1] %>% round(6)
         poly_b <- summary(poly_lm)$coefficients[2,1] %>% round(6)
@@ -184,6 +303,14 @@ pm_model_sum <- function () {
         p_c <- summary(poly_lm)$coefficients[3,4] %>% round(6)
         poly_R2 <- summary(poly_lm)$r.squared %>% round(6)
         
+        # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
+        sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-RS_Norm)) -> sub_site
+        poly_E <- round(sum(sub_site$poly_S_M) / obs, 6)
+        poly_RMSE <- (sum(sub_site$poly_S_M^2) / obs)^0.5 %>% round(3)
+        poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pred)))^2)) %>% round(3)
+        poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        
+        # Add SWC vs Rs scatter plot dots
         plot(sub_site$RS_Norm ~ sub_site$SWC
              , main = ""
              , xlab = ""
@@ -211,24 +338,38 @@ pm_model_sum <- function () {
         
         # plot all study-site pm vs Rs results *********************************************************************
         
-        # first order lm model of SWC ~ Pm
+        # first order lm model of Pm ~ Rs
         first_pm <- lm(RS_Norm ~ Pm_Del, data = sub_site)
         first_pm_a <- summary(first_pm)$coefficients[1,1] %>% round(6)
         first_pm_b <- summary(first_pm)$coefficients[2,1] %>% round(6)
         p_pm_b <- summary(first_pm)$coefficients[2,4]%>% round(6)
         first_pm_R2 <- summary(first_pm)$r.squared %>% round(6)
         
-        # polynomial equation of SWC~Pm
+        # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89. 
+        sub_site %>% mutate(slr_pm_pred = predict(first_pm), slr_pm_resid = residuals(first_pm), slr_pm_S_M = (slr_pm_pred-RS_Norm)) -> sub_site
+        slr_pm_E <- round(sum(sub_site$slr_pm_S_M) / obs, 6)
+        slr_pm_RMSE <- (sum(sub_site$slr_pm_S_M^2) / obs)^0.5 %>% round(3)
+        slr_pm_d <- (1- sum(sub_site$slr_pm_S_M^2)/sum((abs(sub_site$slr_pm_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$slr_pm_pred)))^2)) %>% round(3)
+        slr_pm_EF <- 1 - sum(sub_site$slr_pm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        
+        # polynomial equation of Pm vs Rs
         # poly_pm <- try(lm(RS_Norm ~ poly(Pm_Del,2) , data = sub_site))
         poly_pm <- try(lm(RS_Norm ~ Pm_Del + I(Pm_Del^2), data = sub_site))
         poly_parameter_c <- try(summary(poly_pm)$coefficients[3,1] )
+        
         if (is(poly_pm, "try-error") | is(poly_parameter_c, "try-error")) {
           poly_pm_a <- NA
           poly_pm_b <- NA
           poly_pm_c <- NA
           p_poly_pm_b <- NA
           p_pm_c <- NA
-          poly_pm_R2 <- NA } 
+          poly_pm_R2 <- NA 
+          
+          poly_pm_E <- NA
+          poly_pm_RMSE <- NA
+          poly_pm_d <- NA
+          poly_pm_EF <- NA  } 
+        
         else {
           poly_pm_a <- summary(poly_pm)$coefficients[1,1] %>% round(6)
           poly_pm_b <- summary(poly_pm)$coefficients[2,1] %>% round(6)
@@ -237,11 +378,27 @@ pm_model_sum <- function () {
           p_pm_c <- summary(poly_pm)$coefficients[3,4] %>% round(6)
           poly_pm_R2 <- summary(poly_pm)$r.squared %>% round(6) 
           
+          # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
+          sub_site %>% mutate(poly_pm_pred = predict(poly_pm), poly_resid = residuals(poly_pm), poly_pm_S_M = (poly_pm_pred-RS_Norm)) -> sub_site
+          poly_pm_E <- round(sum(sub_site$poly_pm_S_M) / obs, 6)
+          poly_pm_RMSE <- (sum(sub_site$poly_pm_S_M^2) / obs)^0.5 %>% round(3)
+          poly_pm_d <- (1- sum(sub_site$poly_pm_S_M^2)/sum((abs(sub_site$poly_pm_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pm_pred)))^2)) %>% round(3)
+          poly_pm_EF <- 1 - sum(sub_site$poly_pm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+          
+          # put results together and hold it at results
           lm_sum = data.frame(sub_site$Study_number[1], sub_site$Measure_Year[1], var_site[j], var_swc
                               , first_a, first_b, p_b, first_R2
+                              , slr_E,  slr_RMSE, slr_d, slr_EF
+                              
                               , poly_a, poly_b, p_poly_b, poly_c, p_c, poly_R2
+                              , poly_E, poly_RMSE, poly_d, poly_EF
+                              
                               , first_pm_a, first_pm_b, p_pm_b, first_pm_R2
+                              , slr_pm_E, slr_pm_RMSE, slr_pm_d, slr_pm_EF
+                              
                               , poly_pm_a, poly_pm_b, p_poly_pm_b, poly_pm_c, p_pm_c, poly_pm_R2
+                              , poly_pm_E, poly_pm_RMSE, poly_pm_d, poly_pm_EF
+                              
                               , obs)
           
           results = rbind(results, lm_sum)
@@ -256,7 +413,7 @@ pm_model_sum <- function () {
              , col = "gray"
         )
         
-        # add curve
+        # add simple linear regression, polynomial regression curve
         curve( first_pm_a + first_pm_b * x, min(sub_site$Pm_Del), max(sub_site$Pm_Del), col = "black", lty = 3, lwd = 2, add = T )
         # add polynomial curve, predict y using modp
         if (is.na(poly_pm_c)) {next} else {
@@ -276,10 +433,22 @@ pm_model_sum <- function () {
 }
 
 
+# function: group R2 difference
+# comparing R2 difference and seperate it into three groups: (g1) R2 difference < -0.1, (g2) 0.1 > R2 difference > -0.1, (g3) R2 difference > 0.1
+set_r2_dif_group <- function (low, high, sdata) {
+  
+  sdata %>% mutate(Dif_group = case_when( Diff < low ~ "Low",
+                                          Diff >= low & Diff <= high ~ "No",
+                                          TRUE ~ "High")  ) -> sdata
+  return (sdata)
+}
+
+
 #*****************************************************************************************************************
-# function 3 : plot proportion
+# Other functions
 #*****************************************************************************************************************
 
+# Plot precipitation coverage of samples compare with global mean precipitation
 model_p_plot <- function () {
   # plot out the proportion of p<0.05 and p>0.05 for first order model
   blank_theme <- theme_minimal()+
@@ -292,7 +461,7 @@ model_p_plot <- function () {
       plot.title=element_text(size=14, face="bold")  )
   
   # swc first order model
-  results %>% mutate(p_group = case_when(  p_b > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
+  swc_results %>% mutate(p_group = case_when(  p_b > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
     ggplot(aes(x="", y=n, fill=p_group))+
     geom_bar(width = 1, stat = "identity") +
     coord_polar("y", start=0) + blank_theme +
@@ -302,7 +471,7 @@ model_p_plot <- function () {
     theme (legend.position = "none") -> plot_swc_lm
   
   # Pm first model
-  results %>% mutate(p_group = case_when(  p_pm_b > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
+  swc_results %>% mutate(p_group = case_when(  p_pm_b > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
     ggplot(aes(x="", y=n, fill=p_group))+
     geom_bar(width = 1, stat = "identity") +
     coord_polar("y", start=0) + blank_theme +
@@ -312,7 +481,7 @@ model_p_plot <- function () {
     theme (legend.position = "none") -> plot_pm_lm 
   
   # SWC polynomial model
-  results %>% mutate(p_group = case_when( p_c > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
+  swc_results %>% mutate(p_group = case_when( p_c > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
     ggplot(aes(x="", y=n, fill=p_group))+
     geom_bar(width = 1, stat = "identity") +
     coord_polar("y", start=0) + blank_theme +
@@ -323,7 +492,7 @@ model_p_plot <- function () {
     theme (legend.position = "none") -> plot_poly_swc
   
   # SWC polynomial model
-  results %>% mutate(p_group = case_when( p_pm_c > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
+  swc_results %>% mutate(p_group = case_when( p_pm_c > 0.05 ~ "B005",  TRUE ~ "S005")) %>% select(p_group) %>% count(p_group) %>% 
     ggplot(aes(x="", y=n, fill=p_group))+
     geom_bar(width = 1, stat = "identity") +
     coord_polar("y", start=0) + blank_theme +
@@ -342,15 +511,96 @@ model_p_plot <- function () {
 }
 
 
+
+# function for temperature surrogate model residual analysis *****************************************************************
+t_residual_sum <- function () {
+  
+  var_study <- unique (DGRsD_TS$Study_number) %>% sort()
+  results <- data.frame()
+  
+  for (i in 1:length(var_study)) {
+    # for (i in 3) {
+    sub_study <- subset(DGRsD_TS, Study_number == var_study[i])
+    var_site <- unique (sub_study$SiteID)
+    
+    for (j in 1:length(var_site)) {
+      
+      sub_site <- subset(sub_study, SiteID == var_site[j])
+      
+      # if less than 6 observations, do not do the model simulation 
+      if (nrow(sub_site) < 6) {next} else {
+        
+        # swc vs Rs: simple linear regression
+        first_ts <- lm(RS_Norm ~ Tsoil, data = sub_site)
+        poly_ts <- lm(RS_Norm ~ Tsoil + I(Tsoil^2), data = sub_site)
+        first_tm <- lm(RS_Norm ~ Tm_Del, data = sub_site)
+        poly_tm <- try(lm(RS_Norm ~ Tm_Del + I(Tm_Del^2), data = sub_site))
+        
+        obs <- nrow(sub_site)
+        
+        # get residual
+        sub_site %>% mutate(slr_pred = predict(first_ts), slr_resid = residuals(first_ts), 
+                            poly_pred = predict(poly_ts), poly_resid = residuals(poly_ts),
+                            slr_tm_pred = predict(first_tm), slr_tm_resid = residuals(first_tm),
+                            poly_tm_pred = predict(poly_tm), poly_tm_resid = residuals(poly_tm) ) -> sub_site
+        
+        results = rbind(results, sub_site)
+        
+      }
+      print(paste0("*****", i, "-----", j))
+    }
+  }
+  return (results)
+}
+
+
+# function for moisture surrogate model residual analysis *****************************************************************
+swc_residual_sum <- function () {
+  
+  var_study <- unique (DGRsD_SWC$Study_number) %>% sort()
+  results <- data.frame()
+  
+  for (i in 1:length(var_study)) {
+    # for (i in 3) {
+    sub_study <- subset(DGRsD_SWC, Study_number == var_study[i])
+    var_site <- unique (sub_study$SiteID)
+    
+    for (j in 1:length(var_site)) {
+      
+      sub_site <- subset(sub_study, SiteID == var_site[j])
+      
+      if (nrow(sub_site) < 6) {next} else {
+        
+        # swc vs Rs: simple linear regression
+        first_swc <- lm(RS_Norm ~ SWC, data = sub_site)
+        poly_swc <- lm(RS_Norm ~ SWC + I(SWC^2), data = sub_site)
+        first_pm <- lm(RS_Norm ~ Pm_Del, data = sub_site)
+        poly_pm <- try(lm(RS_Norm ~ Pm_Del + I(Pm_Del^2), data = sub_site))
+        
+        obs <- nrow(sub_site)
+        
+        # get residual
+        sub_site %>% mutate(slr_pred = predict(first_swc), slr_resid = residuals(first_swc), 
+                            poly_pred = predict(poly_swc), poly_resid = residuals(poly_swc),
+                            slr_pm_pred = predict(first_pm), slr_pm_resid = residuals(first_pm),
+                            poly_pm_pred = predict(poly_pm), poly_pm_resid = residuals(poly_pm) ) -> sub_site
+          
+        results = rbind(results, sub_site)
+       
+      }
+      print(paste0("*****", i, "-----", j))
+    }
+  }
+  return (results)
+}
+
+
 # function: group R2 difference
+# comparing R2 difference and seperate it into three groups: (g1) R2 difference < -0.1, (g2) 0.1 > R2 difference > -0.1, (g3) R2 difference > 0.1
 set_r2_dif_group <- function (low, high, sdata) {
   
   sdata %>% mutate(Dif_group = case_when( Diff < low ~ "Low",
                                           Diff >= low & Diff <= high ~ "No",
-                                          TRUE ~ "High")
-  ) -> sdata
+                                          TRUE ~ "High")  ) -> sdata
   return (sdata)
 }
-
-
-
