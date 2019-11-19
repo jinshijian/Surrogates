@@ -291,3 +291,128 @@ par(mar=c(0,2,1,0))
 barplot(h1$counts, axes=F, ylim=c(0, top), space=0, col='red')
 par(mar=c(2,0,0.5,1))
 barplot(h2$counts, axes=F, xlim=c(0, top), space=0, col='red', horiz=T)
+
+
+#*****************************************************************************************************************
+# Code no long used
+#*****************************************************************************************************************
+
+t_results %>%
+  select(`Tsoil(SLR)` = slr_RMSE, `Tair(SLR)` = slr_Tm_RMSE,
+         `Tsoil(Polynomial)` = poly_RMSE, `Tair(Polynomial)` = poly_Tm_RMSE) %>% 
+  gather(model_type) %>% 
+  mutate(Temperature = case_when(model_type %in% c('Tsoil(SLR)', "Tsoil(Polynomial)") ~ "Tsoil",
+                                 TRUE ~ "Tair" )) %>% 
+  mutate(Model = case_when(model_type %in% c('Tsoil(SLR)', "Tair(SLR)") ~ "SLR",
+                           TRUE ~ "Polynomial" )) %>% 
+  mutate(Stat = "RMSE") ->
+  RMSE_figure_data
+
+# Comparing d
+t_results %>%
+  select(`Tsoil(SLR)` = slr_d, `Tair(SLR)` = slr_Tm_d,
+         `Tsoil(Polynomial)` = poly_d, `Tair(Polynomial)` = poly_Tm_d) %>% 
+  gather(model_type) %>% 
+  mutate(Temperature = case_when(model_type %in% c('Tsoil(SLR)', "Tsoil(Polynomial)") ~ "Tsoil",
+                                 TRUE ~ "Tair" )) %>% 
+  mutate(Model = case_when(model_type %in% c('Tsoil(SLR)', "Tair(SLR)") ~ "SLR",
+                           TRUE ~ "Polynomial" )) %>% 
+  mutate(Stat = "d") ->
+  d_figure_data
+
+# Comparing EF
+t_results %>%
+  select(`Tsoil(SLR)` = slr_EF, `Tair(SLR)` = slr_Tm_EF,
+         `Tsoil(Polynomial)` = poly_EF, `Tair(Polynomial)` = poly_Tm_EF) %>% 
+  gather(model_type) %>% 
+  mutate(Temperature = case_when(model_type %in% c('Tsoil(SLR)', "Tsoil(Polynomial)") ~ "Tsoil",
+                                 TRUE ~ "Tair" )) %>% 
+  mutate(Model = case_when(model_type %in% c('Tsoil(SLR)', "Tair(SLR)") ~ "SLR",
+                           TRUE ~ "Polynomial" )) %>% 
+  mutate(Stat = "EF") ->
+  EF_figure_data
+
+stat_figure_data <- bind_rows(RMSE_figure_data, d_figure_data, EF_figure_data)
+
+stat_figure_data %>% 
+  ggplot(aes(value, fill = Temperature)) +
+  theme_cowplot() +
+  geom_density(stat = 'density', alpha = 0.5) +
+  # theme(legend.position = c(0.75, 0.25)) +
+  facet_grid(cols = vars(Model), rows = vars(Stat), scales = "free") +
+  coord_cartesian(xlim = c(0, 3)) +
+  scale_fill_discrete("") + ylab("Density") ->
+  model_statistic_comparison
+
+print(model_statistic_comparison)
+
+
+# model_p_plot()
+
+# Use PCA to detect which environmental factor effect the surrogates of temperature
+# t_results %>% select(Lat, Lon, Ts_depth, MAP, MAT, Diff, Dif_group) %>% na.omit() -> sub_t_results
+# sub_t_results %>% dplyr::rename(Depth = Ts_depth) -> sub_t_results
+# prcomp(sub_t_results %>% select(Lat, Lon, Depth, MAP, MAT) %>% na.omit(),
+#              center = TRUE,
+#              scale. = TRUE) -> t_PCA 
+# str(t_PCA)
+# summary(t_PCA)
+
+# g <- ggbiplot(t_PCA,
+#               obs.scale = 1,
+#               var.scale = 1,
+#               groups = sub_t_results$Dif_group,
+#               ellipse = T,
+#               circle = T,
+#               ellipse.prob = 0.9,
+#               varname.size =  5 ) 
+# g <- g + scale_color_discrete(name = '')
+# 
+# g <- g + theme_bw()
+# 
+# g <- g + theme(legend.direction = 'horizontal',
+#                legend.position = 'top')
+
+# print(g)
+
+
+# Using logistic regression to study whether latitude, longitude, elevation, MAT, MAP effect whether soil respiration has significant relationship with Tsoil
+# logistic regression to test when p<0.05
+# t_results %>% mutate(p_group = ifelse(p_b <= 0.05, 1, 0)) %>% select(Study_number, SiteID, Lat, Lon, Ele, MAT, MAP, p_b, p_group, Biome_group) %>% 
+#   ggplot(aes(p_group, fill = Biome_group)) + geom_bar()
+
+# logistic regression to test when p<0.05
+# summary(glm(p_group ~ Lat  + MAT + MAP, data = sub_t_results, family = "binomial"))
+
+# Classfication modeling to study whether Biome, ecosystem_type, leaf_habit affect whether soil respiration has a significant relationship with Tsoil
+# classfication
+# fit <- rpart(Diff ~ Biome + Ecosystem_type + Leaf_habit + Soil_drainage,
+#              method="class", data=t_results %>% 
+#                select(Biome, Ecosystem_type, Leaf_habit, Soil_drainage, Diff) %>% na.omit())
+# 
+# printcp(fit) # display the results 
+# plotcp(fit) # visualize cross-validation results 
+# summary(fit) # detailed summary of splits
+# 
+# plot(fit, uniform=TRUE, 
+#    main="Classification Tree")
+
+# test aggregate to monthly
+
+i = 1
+j = 1
+sub_study <- subset(DGRsD_TS, Study_number == var_study[i])
+var_site <- unique (sub_study$SiteID)
+sub_site <- subset(sub_study, SiteID == var_site[j])
+sub_site %>% select(Study_number, Measure_Year, Measure_Month, RS_Norm, Tsoil, Tm_Del) %>% 
+  group_by(Study_number, Measure_Year, Measure_Month) %>% 
+  summarise(RS_Norm = mean(RS_Norm),
+            Tsoil = mean(Tsoil),
+            Tm_Del = mean(Tm_Del)) -> sub_site
+
+
+# get those site with opposite trend
+
+
+
+

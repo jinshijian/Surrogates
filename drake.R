@@ -46,9 +46,11 @@ plan = drake_plan(
   # Model statistics (p, R2, RMSE etc) will be recorded
   # We also calculated several other model evaluation statics (E, d, EF etc) for model comparison
   t_results = t_model_sum(DGRsD_TS), 
-  
   # Precipitation for precipitation (Pm) as a surrogate of soil water content (swc), same logic as above
-  swc_results = pm_model_sum(DGRsD_SWC)
+  swc_results = pm_model_sum(DGRsD_SWC),
+  
+  t_residual_results = t_residual_sum(DGRsD_TS),
+  swc_residual_results = swc_residual_sum(DGRsD_SWC)
 )
 
 # rm(list = ls())

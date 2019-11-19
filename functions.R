@@ -46,7 +46,7 @@ make_groups_dgrsd <- function(sdata) {
   sdata %>% mutate(Climate_type = case_when(
     Climate %in% c("Af", "Am", "As", "Aw") ~ "(A) Tropic",
     Climate %in% c("BSh", "BSk", "BWh", "BWk") ~ "(B) Arid",
-    Climate %in% c("Dfa", "Dfb", "Dfc", "Dsc", "Dwa", "Dwb", "Dwc", "EF", "ET") ~ "(D) Continental", 
+    Climate %in% c("Dfa", "Dfb", "Dfc", "Dsc", "Dwa", "Dwb", "Dwc", "EF", "ET") ~ "(D) Snow", 
     TRUE ~ "(C) Temperate")) -> sdata
   sdata$Ecosystem_type <- ifelse(is.na(sdata$Ecosystem_type), "Not available", sdata$Ecosystem_type)
   
@@ -88,7 +88,7 @@ t_model_sum <- function (DGRsD_TS) {
   var_study <- unique (DGRsD_TS$Study_number) %>% sort()
   t_results <- data.frame()
   
-  # i = 2
+  # i = 1
   # j = 1
   
   for (i in 1:length(var_study)) {
@@ -96,7 +96,13 @@ t_model_sum <- function (DGRsD_TS) {
     var_site <- unique (sub_study$SiteID)
     
     for (j in 1:length(var_site)) {
-      sub_site <- subset(sub_study, SiteID == var_site[j])
+      sub_siteID <- subset(sub_study, SiteID == var_site[j])
+      # aggregate by month - make sure Tsoil and Tair all both in monthly time scale
+      sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, Tsoil, Tm_Del) %>% 
+        group_by(Study_number, SiteID, Measure_Month) %>% 
+        summarise(RS_Norm = mean(RS_Norm),
+                  Tsoil = mean(Tsoil),
+                  Tm_Del = mean(Tm_Del)) -> sub_site
       
       if (nrow(sub_site) < 6) {next} else {
         
@@ -198,7 +204,7 @@ t_model_sum <- function (DGRsD_TS) {
           poly_Tm_d <- (1- sum(sub_site$poly_Tm_S_M^2)/sum((abs(sub_site$poly_Tm_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_Tm_pred)))^2)) %>% round(3)
           poly_Tm_EF <- 1 - sum(sub_site$poly_Tm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
           
-          lm_sum = data.frame(sub_site$Study_number[1], sub_site$Measure_Year[1], var_site[j]
+          lm_sum = data.frame(sub_site$Study_number[1], sub_siteID$Measure_Year[1], var_site[j]
                               , first_a, first_b, p_b, first_R2
                               , slr_E,  slr_RMSE, slr_d, slr_EF
                               
@@ -273,8 +279,15 @@ pm_model_sum <- function (DGRsD_SWC) {
     
     for (j in 1:length(var_site)) {
       
-      sub_site <- subset(sub_study, SiteID == var_site[j])
-      var_swc <- sub_site$SWC_Type[1]
+      sub_siteID <- subset(sub_study, SiteID == var_site[j])
+      var_swc <- sub_siteID$SWC_Type[1]
+      
+      # aggregate by month - make sure Tsoil and Tair all both in monthly time scale
+      sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, SWC, Pm_Del) %>% 
+        group_by(Study_number, SiteID, Measure_Month) %>% 
+        summarise(RS_Norm = mean(RS_Norm),
+                  SWC = mean(SWC),
+                  Pm_Del = mean(Pm_Del)) -> sub_site
       
       if (nrow(sub_site) < 6) {next} else {
         
@@ -386,7 +399,7 @@ pm_model_sum <- function (DGRsD_SWC) {
           poly_pm_EF <- 1 - sum(sub_site$poly_pm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
           
           # put results together and hold it at results
-          lm_sum = data.frame(sub_site$Study_number[1], sub_site$Measure_Year[1], var_site[j], var_swc
+          lm_sum = data.frame(sub_site$Study_number[1], sub_siteID$Measure_Year[1], var_site[j], var_swc
                               , first_a, first_b, p_b, first_R2
                               , slr_E,  slr_RMSE, slr_d, slr_EF
                               
@@ -513,7 +526,7 @@ model_p_plot <- function () {
 
 
 # function for temperature surrogate model residual analysis *****************************************************************
-t_residual_sum <- function () {
+t_residual_sum <- function (DGRsD_TS) {
   
   var_study <- unique (DGRsD_TS$Study_number) %>% sort()
   results <- data.frame()
@@ -555,7 +568,7 @@ t_residual_sum <- function () {
 
 
 # function for moisture surrogate model residual analysis *****************************************************************
-swc_residual_sum <- function () {
+swc_residual_sum <- function (DGRsD_SWC) {
   
   var_study <- unique (DGRsD_SWC$Study_number) %>% sort()
   results <- data.frame()
