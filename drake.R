@@ -31,9 +31,9 @@ if(!file.exists(OUTPUT_DIR)) dir.create(OUTPUT_DIR)
 
 plan = drake_plan(
   # load data
-  SRDB_raw = read.csv(file.path(DATA_DIR,"srdb-data.csv")),
-  DGRsD_raw = read.csv(file.path(DATA_DIR, "DGRsD.csv")),
-  GPT = read.csv(file.path(DATA_DIR, "summarized_climate.csv")),
+  SRDB_raw = read.csv(file_in(!!file.path(DATA_DIR,"srdb-data.csv"))),
+  DGRsD_raw = read.csv(file_in(!!file.path(DATA_DIR, "DGRsD.csv"))),
+  GPT = read.csv(file_in(!!file.path(DATA_DIR, "summarized_climate.csv"))),
   
   # data filtration
   SRDB = make_groups_srdb(SRDB_raw),
@@ -54,5 +54,6 @@ plan = drake_plan(
 )
 
 # rm(list = ls())
-
 make(plan)
+# config <- make(plan)
+# vis_drake_graph(config)
