@@ -623,6 +623,6 @@ outlier_test <- function (sdata, x, y){
   m <- lm( y ~ x, data=sdata )
   sdata$standardized_resids <- rstandard( m )
   sdata$cooks_dist <- cooks.distance( m ) # when > 0.5
-  sdata$outlier <- ifelse(sdata$standardized_resids > 2 | sdata$cooks_dist > 0.1, "Yes", "No")
+  sdata$outlier <- ifelse(abs(sdata$standardized_resids) > 2 | sdata$cooks_dist > 0.1, "Yes", "No")
   return(sdata)
 }

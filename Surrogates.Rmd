@@ -253,7 +253,7 @@ p6 = p6 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2
 plot_grid(p1, p2, p3
           , p4, p5, p6, ncol = 3)
 
-ggsave("outputs/Figure2.jpg", width = 8, height = 6, dpi = 300, units = "in")
+# ggsave("outputs/Figure2.jpg", width = 8, height = 6, dpi = 300, units = "in")
 
 # t_results %>% mutate(p_group = ifelse(p_poly_b <= 0.05 | p_c <= 0.05, "Yes", "No")) %>% select(SiteID, p_poly_b, p_c, p_group)
   
@@ -264,6 +264,10 @@ ggsave("outputs/Figure2.jpg", width = 8, height = 6, dpi = 300, units = "in")
 
 #### outlier detecting and removing for RMSE
 ```{r}
+# set the cutoff for outlier
+# distance = 4/n or 4/(n-k-1)
+# dist = 0.005
+
 # Select beta values
 bind_rows(
   t_results %>% select(`Tsoil` = first_b, `Tair` = first_Tm_b, p_b, p_Tm_b) %>% 
@@ -276,13 +280,68 @@ bind_rows(
     # filter(Tsoil > -100 & Tsoil < 10) %>% # remove two outlier, that one significantly effect the relationship
     mutate(Model = 'Polynomial', Model_stat = 'beta')
 ) -> t_surrogate_beta
-
 t_surrogate_beta <- outlier_test(t_surrogate_beta, t_surrogate_beta$Tair, t_surrogate_beta$Tsoil)
-# set the cutoff for outlier
-# distance = 4/n or 4/(n-k-1)
-# dist = 0.005
-# t_surrogate_beta$outlier <- ifelse (t_surrogate_beta$cooks_dist > 0.1 | t_surrogate_beta$standardized_resids > 2, 'Yes', 'No')
+t_surrogate_beta <- t_surrogate_beta %>% filter(Tsoil < 1.5)  #4608 and 4609
 
+# Select R2 values
+bind_rows(
+  t_results %>% select(`Tsoil` = first_R2, `Tair` = first_Tm_R2, p_b, p_Tm_b) %>% 
+    filter(p_b < 0.05 & p_Tm_b < 0.05) %>% 
+    mutate(Model = 'SLR', Model_stat = 'R2'),
+  
+  t_results %>% select(`Tsoil` = poly_R2, `Tair` = poly_Tm_R2, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
+    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
+    mutate(Model = 'Polynomial', Model_stat = 'R2')
+) -> t_surrogate_r2
+t_surrogate_r2 <- outlier_test(t_surrogate_r2, t_surrogate_r2$Tair, t_surrogate_r2$Tsoil)
+
+# Select RMSE values
+bind_rows(
+  t_results %>% select(`Tsoil` = slr_RMSE, `Tair` = slr_Tm_RMSE, p_b, p_Tm_b) %>%
+    filter(p_b < 0.05 & p_Tm_b < 0.05) %>%
+    filter(Tsoil < 2) %>% # only 3 points, hide them
+    mutate(Model = 'SLR', Model_stat = 'RMSE'),
+
+  t_results %>% select(`Tsoil` = poly_RMSE, `Tair` = poly_Tm_RMSE, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>%
+    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>%
+    filter(Tsoil < 2) %>%
+    mutate(Model = 'Polynomial', Model_stat = 'RMSE')
+) -> t_surrogate_rmse
+t_surrogate_rmse <- outlier_test(t_surrogate_rmse, t_surrogate_rmse$Tair, t_surrogate_rmse$Tsoil)
+
+# Select d values
+bind_rows(
+  t_results %>% select(`Tsoil` = slr_d, `Tair` = slr_Tm_d, p_b, p_Tm_b) %>% 
+    filter(p_b < 0.05 & p_Tm_b < 0.05) %>% 
+    mutate(Model = 'SLR', Model_stat = 'd'),
+  
+  t_results %>% select(`Tsoil` = poly_d, `Tair` = poly_Tm_d, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
+    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
+    mutate(Model = 'Polynomial', Model_stat = 'd')
+) -> t_surrogate_d
+t_surrogate_d <- outlier_test(t_surrogate_d, t_surrogate_d$Tair, t_surrogate_d$Tsoil)
+  
+# Select EF values
+bind_rows(
+  t_results %>% select(`Tsoil` = slr_EF, `Tair` = slr_Tm_EF, p_b, p_Tm_b) %>% 
+    filter(p_b < 0.05 & p_Tm_b < 0.05) %>% 
+    mutate(Model = 'SLR', Model_stat = 'EF'),
+  
+  t_results %>% select(`Tsoil` = poly_EF, `Tair` = poly_Tm_EF, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
+    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
+    mutate(Model = 'Polynomial', Model_stat = 'EF')
+) -> t_surrogate_ef
+
+t_surrogate_ef <- outlier_test(t_surrogate_ef, t_surrogate_ef$Tair, t_surrogate_ef$Tsoil)
+
+t_surrogate <- bind_rows(t_surrogate_beta, t_surrogate_r2, t_surrogate_rmse, t_surrogate_d, t_surrogate_ef)
+
+```
+
+
+#### plot the model statistic comparison
+```{r Figure stat temperature}
+scaleFUN <- function(x) sprintf("%.1f", x) # x and y axis label to 1 decimal
 
 t_surrogate_beta %>% 
   ggplot(aes(x = Tair, y = Tsoil, color = outlier )) + geom_point(alpha = 0.5) +
@@ -309,73 +368,9 @@ t_surrogate_beta %>%
 
 plot_grid(p_rmse, p_rmse_outlrm, rel_widths = c(0.575, 0.425))
 
-t_surrogate_beta %>% filter(cooks_dist >= 0.005)
-t_surrogate_beta %>% filter(Tsoil > 1 & Model == 'SLR')
-t_surrogate_beta %>% filter(Tsoil > 10)
-```
-
-
-#### plot the model statistic comparison
-```{r Figure stat temperature}
 # Need do some outlier test, see Bahn analysis
-scaleFUN <- function(x) sprintf("%.1f", x) # x and y axis label to 1 decimal
-bind_rows(
-  # Select R2 values
-  t_results %>% select(`Tsoil` = first_R2, `Tair` = first_Tm_R2, p_b, p_Tm_b) %>% 
-    filter(p_b < 0.05 & p_Tm_b < 0.05) %>% 
-    mutate(Model = 'SLR', Model_stat = 'R2'),
-  
-  t_results %>% select(`Tsoil` = poly_R2, `Tair` = poly_Tm_R2, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
-    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
-    mutate(Model = 'Polynomial', Model_stat = 'R2'), 
-  
-  # Select beta values
-  # t_results %>% select(`Tsoil` = first_b, `Tair` = first_Tm_b, p_b, p_Tm_b) %>% 
-  #   filter(p_b < 0.05 & p_Tm_b < 0.05) %>% 
-  #   filter(Tsoil < 1.5) %>%  # remove one outlier, that one significantly effect the relationship
-  #   mutate(Model = 'SLR', Model_stat = 'beta'),
-  # 
-  # t_results %>% select(`Tsoil` = poly_b, `Tair` = poly_Tm_b, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
-  #   filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
-  #   filter(Tsoil > -100 & Tsoil < 10) %>% # remove two outlier, that one significantly effect the relationship
-  #   mutate(Model = 'Polynomial', Model_stat = 'beta'),
-  
-  t_surrogate_beta %>%
-    filter(outlier == "No") %>%
-    filter(Tsoil < 1.5) %>%
-    select(Tsoil, Tair, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c, Model, Model_stat), # remove two studies (4608 and 4609), these two studies have significant opposite trend),
-  
-  # Select RMSE values
-  t_results %>% select(`Tsoil` = slr_RMSE, `Tair` = slr_Tm_RMSE, p_b, p_Tm_b) %>%
-    filter(p_b < 0.05 & p_Tm_b < 0.05) %>%
-    filter(Tsoil < 2) %>% # only 3 points, hide them
-    mutate(Model = 'SLR', Model_stat = 'RMSE'),
-
-  t_results %>% select(`Tsoil` = poly_RMSE, `Tair` = poly_Tm_RMSE, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>%
-    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>%
-    filter(Tsoil < 2) %>%
-    mutate(Model = 'Polynomial', Model_stat = 'RMSE'),
-  
-  # Select d values
-  t_results %>% select(`Tsoil` = slr_d, `Tair` = slr_Tm_d, p_b, p_Tm_b) %>% 
-    filter(p_b < 0.05 & p_Tm_b < 0.05) %>% 
-    mutate(Model = 'SLR', Model_stat = 'd'),
-  
-  t_results %>% select(`Tsoil` = poly_d, `Tair` = poly_Tm_d, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
-    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
-    mutate(Model = 'Polynomial', Model_stat = 'd'),
-  
-  # Select EF values
-  t_results %>% select(`Tsoil` = slr_EF, `Tair` = slr_Tm_EF, p_b, p_Tm_b) %>% 
-    filter(p_b < 0.05 & p_Tm_b < 0.05) %>% 
-    mutate(Model = 'SLR', Model_stat = 'EF'),
-  
-  t_results %>% select(`Tsoil` = poly_EF, `Tair` = poly_Tm_EF, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
-    filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
-    mutate(Model = 'Polynomial', Model_stat = 'EF')
-  
-) %>% 
-  ggplot(aes(x = Tair, y = Tsoil )) + geom_point(alpha = 0.1) +
+t_surrogate %>% 
+  ggplot(aes(x = Tair, y = Tsoil, col = outlier )) + geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", col = "blue", fill = "lightblue") +
   geom_abline(intercept = 0, slope = 1, col = "red", linetype = "dotdash", size = 1.25) +
   facet_wrap (Model ~ Model_stat, nrow = 2, scales = "free") +
@@ -383,9 +378,27 @@ bind_rows(
   # scale_y_continuous(trans = "log2") +
   scale_x_continuous(labels=scaleFUN) +
   scale_y_continuous(labels=scaleFUN)
+
+ggsave("outputs/FigureS13.jpg", width = 8, height = 5, dpi = 300, units = "in")
+
+t_surrogate %>% 
+  filter(outlier == "No") %>% 
+  ggplot(aes(x = Tair, y = Tsoil, col = outlier )) + geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm", col = "blue", fill = "lightblue") +
+  geom_abline(intercept = 0, slope = 1, col = "red", linetype = "dotdash", size = 1.25) +
+  facet_wrap (Model ~ Model_stat, nrow = 2, scales = "free") +
+  # scale_x_continuous(trans = "log2") +
+  # scale_y_continuous(trans = "log2") +
+  scale_x_continuous(labels=scaleFUN) +
+  scale_y_continuous(labels=scaleFUN) +
+  theme(legend.position = "none")
    
 
-ggsave("outputs/Figure3.jpg", width = 8, height = 5, dpi = 300, units = "in")
+# ggsave("outputs/Figure3.jpg", width = 8, height = 5, dpi = 300, units = "in")
+
+t_surrogate_beta %>% filter(cooks_dist >= 0.005)
+t_surrogate_beta %>% filter(Tsoil > 1 & Model == 'SLR')
+t_surrogate_beta %>% filter(Tsoil > 10)
 
 ```
 
@@ -505,7 +518,7 @@ p6 = p6 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2
 
 plot_grid(p1, p2, p3, p4, p5, p6, ncol = 3)
 
-ggsave("outputs/Figure4.jpg", width = 8, height = 6, dpi = 300, units = "in")
+# ggsave("outputs/Figure4.jpg", width = 8, height = 6, dpi = 300, units = "in")
 
 swc_results %>% mutate(p_group = ifelse(p_poly_b <= 0.05 | p_c <= 0.05, "Yes", "No")) %>% select(SiteID, p_poly_b, p_c, p_group)
   
@@ -580,6 +593,7 @@ bind_rows(
     filter(p_poly_pm_b < 0.05 | p_pm_c < 0.05) %>%  
     mutate(Model = 'Polynomial', Model_stat = 'EF')
 ) -> swc_surrogate_ef 
+
 swc_surrogate_ef <- outlier_test(swc_surrogate_ef, swc_surrogate_ef$Pm, swc_surrogate_ef$SWC)
 
 swc_surrogate <- bind_rows(swc_surrogate_beta, swc_surrogate_r2, swc_surrogate_rmse, swc_surrogate_d, swc_surrogate_ef)
@@ -602,20 +616,22 @@ swc_results %>% select(`SWC` = poly_d, `Pm` = poly_pm_d, p_poly_b, p_poly_pm_b, 
 swc_surrogate %>% 
   ggplot(aes(x = Pm, y = SWC, col = outlier )) + geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", col = "blue", fill = "lightblue") +
-  geom_abline(intercept = 0, slope = 1, col = "red", linetype = "dashed", size = 2) +
+  geom_abline(intercept = 0, slope = 1, col = "red", linetype = "dotdash", size = 1.25) +
   facet_wrap (Model ~ Model_stat, nrow = 2, scales = "free")
+
+# ggsave("outputs/FigureS14.jpg", width = 8, height = 5, dpi = 300, units = "in")
 
 swc_surrogate %>% 
   filter(outlier == "No") %>% 
   ggplot(aes(x = Pm, y = SWC, col = outlier )) + geom_point(alpha = 0.5) +
   geom_smooth(method = "lm", col = "blue", fill = "lightblue") +
-  geom_abline(intercept = 0, slope = 1, col = "red", linetype = "dashed", size = 2) +
+  geom_abline(intercept = 0, slope = 1, col = "red", linetype = "dotdash", size = 1.25) +
   facet_wrap (Model ~ Model_stat, nrow = 2, scales = "free") +
   theme(legend.position = "none")
 
 
 
-ggsave("outputs/Figure5.jpg", width = 8, height = 5, dpi = 300, units = "in")
+# ggsave("outputs/Figure5.jpg", width = 8, height = 5, dpi = 300, units = "in")
 
 ```
 
@@ -1304,7 +1320,7 @@ bind_rows(
   facet_grid(rows = vars(Climate), cols = vars(Predictor)) +
   labs(x = expression(Predicted~R[S]~"( g C m"^{-2}~s^{-1}~")"))
 
-ggsave("outputs/FigureS12.jpg", dpi = 300, width = 8, height = 8, units = "in")
+# ggsave("outputs/FigureS12.jpg", dpi = 300, width = 8, height = 8, units = "in")
 
 ```
 
@@ -1318,9 +1334,21 @@ t_results %>% select(Study_number,SiteID,first_R2, first_Tm_R2, p_b, p_Tm_b) %>%
 
 
 ### find out those study and site have opposite relationship between Rs-vs-Taoil and Rs-vs-Tair
-```{r}
-t_results %>% select(Study_number, SiteID, first_b, first_Tm_b) %>% mutate(Slope_comparison = first_b * first_Tm_b) %>% 
-  filter(Slope_comparison < 0)
+```{r Tair not good surrogate}
+t_results %>% select(Study_number, SiteID, first_b, first_Tm_b, Lat, Lon, first_R2, p_b) %>% mutate(Slope_comparison = first_b * first_Tm_b) %>% 
+  filter(Slope_comparison < 0) -> tnosug_results
+
+tnosug_results %>% select(Lat) %>% min()
+tnosug_results %>% select(Lat) %>% max()
+
+# Make a map of these datasets
+library(sp)
+# install.packages("leaflet")
+library(leaflet)
+map <- data.frame(lon = tnosug_results$Lon, lat = tnosug_results$Lat)
+coordinates(map) <- ~lon + lat
+leaflet(map) %>% 
+  addMarkers() 
 
 # find out slope outlier studies
 t_results %>% select(Study_number, SiteID, first_b, first_Tm_b) %>% mutate(Slope_comparison = first_b * first_Tm_b) %>% 
