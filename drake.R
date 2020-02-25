@@ -54,6 +54,7 @@ plan = drake_plan(
 )
 
 # rm(list = ls())
+# clean(plan)
 make(plan)
 # config <- make(plan)
 # vis_drake_graph(config)

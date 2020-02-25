@@ -44,10 +44,10 @@ make_groups_dgrsd <- function(sdata) {
   # DGRsD data processing
   # Group climate
   sdata %>% mutate(Climate_type = case_when(
-    Climate %in% c("Af", "Am", "As", "Aw") ~ "(A) Tropic",
-    Climate %in% c("BSh", "BSk", "BWh", "BWk") ~ "(B) Arid",
-    Climate %in% c("Dfa", "Dfb", "Dfc", "Dsc", "Dwa", "Dwb", "Dwc", "EF", "ET") ~ "(D) Snow", 
-    TRUE ~ "(C) Temperate")) -> sdata
+    Climate %in% c("Af", "Am", "As", "Aw") ~ "(a) Tropic",
+    Climate %in% c("BSh", "BSk", "BWh", "BWk") ~ "(b) Arid",
+    Climate %in% c("Dfa", "Dfb", "Dfc", "Dsc", "Dwa", "Dwb", "Dwc", "EF", "ET") ~ "(d) Snow", 
+    TRUE ~ "(c) Temperate")) -> sdata
   sdata$Ecosystem_type <- ifelse(is.na(sdata$Ecosystem_type), "Not available", sdata$Ecosystem_type)
   
   return(sdata)
@@ -99,10 +99,11 @@ t_model_sum <- function (DGRsD_TS) {
       sub_siteID <- subset(sub_study, SiteID == var_site[j])
       # aggregate by month - make sure Tsoil and Tair all both in monthly time scale
       sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, Tsoil, Tm_Del) %>% 
-        group_by(Study_number, SiteID, Measure_Month) %>% 
-        summarise(RS_Norm = mean(RS_Norm),
-                  Tsoil = mean(Tsoil),
-                  Tm_Del = mean(Tm_Del)) -> sub_site
+        group_by(Study_number, SiteID, Measure_Month) %>%
+        summarise_each(funs(mean = mean), RS_Norm,
+                  Tsoil,
+                  Tm_Del) -> sub_site
+      colnames(sub_site) <- c("Study_number", "SiteID", "Measure_Month", "RS_Norm", "Tsoil", "Tm_Del")
       
       if (nrow(sub_site) < 6) {next} else {
         
@@ -136,6 +137,15 @@ t_model_sum <- function (DGRsD_TS) {
         poly_RMSE <- (sum(sub_site$poly_S_M^2) / obs)^0.5 %>% round(3)
         poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pred)))^2)) %>% round(3)
         poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        
+        
+        # Ts vs Tair: first order lm model
+        TsTair_lm <- lm(Tsoil ~ Tm_Del, data = sub_site)
+        TsTair_a <- summary(TsTair_lm)$coefficients[1,1] %>% round(6)
+        TsTair_b <- summary(TsTair_lm)$coefficients[2,1] %>% round(6)
+        p_TsTair_b <- summary(TsTair_lm)$coefficients[2,4]%>% round(6)
+        TsTair_R2 <- summary(TsTair_lm)$r.squared %>% round(6)
+        
         
         # plot all study-site Ts vs Rs results
         plot(sub_site$RS_Norm ~ sub_site$Tsoil
@@ -216,6 +226,8 @@ t_model_sum <- function (DGRsD_TS) {
                               
                               , poly_Tm_a, poly_Tm_b, p_poly_Tm_b, poly_Tm_c, p_Tm_c, poly_Tm_R2
                               , poly_Tm_E, poly_Tm_RMSE, poly_Tm_d, poly_Tm_EF
+                              
+                              , TsTair_a, TsTair_b, p_TsTair_b, TsTair_R2
                               , obs )
           
           # output all statistic results to "t_results"
@@ -285,9 +297,11 @@ pm_model_sum <- function (DGRsD_SWC) {
       # aggregate by month - make sure Tsoil and Tair all both in monthly time scale
       sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, SWC, Pm_Del) %>% 
         group_by(Study_number, SiteID, Measure_Month) %>% 
-        summarise(RS_Norm = mean(RS_Norm),
-                  SWC = mean(SWC),
-                  Pm_Del = mean(Pm_Del)) -> sub_site
+        summarise_each (funs(mean = mean), RS_Norm,
+                  SWC,
+                  Pm_Del) -> sub_site
+      
+      colnames(sub_site) <- c("Study_number", "SiteID", "Measure_Month", "RS_Norm", "SWC", "Pm_Del")
       
       if (nrow(sub_site) < 6) {next} else {
         
@@ -322,6 +336,13 @@ pm_model_sum <- function (DGRsD_SWC) {
         poly_RMSE <- (sum(sub_site$poly_S_M^2) / obs)^0.5 %>% round(3)
         poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pred)))^2)) %>% round(3)
         poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        
+        # SWC vs Pm: first order lm model
+        SWCPm_lm <- lm(SWC ~ Pm_Del, data = sub_site)
+        SWCPm_a <- summary(SWCPm_lm)$coefficients[1,1] %>% round(6)
+        SWCPm_b <- summary(SWCPm_lm)$coefficients[2,1] %>% round(6)
+        p_SWCPm_b <- summary(SWCPm_lm)$coefficients[2,4]%>% round(6)
+        SWCPm_R2 <- summary(SWCPm_lm)$r.squared %>% round(6)
         
         # Add SWC vs Rs scatter plot dots
         plot(sub_site$RS_Norm ~ sub_site$SWC
@@ -411,6 +432,8 @@ pm_model_sum <- function (DGRsD_SWC) {
                               
                               , poly_pm_a, poly_pm_b, p_poly_pm_b, poly_pm_c, p_pm_c, poly_pm_R2
                               , poly_pm_E, poly_pm_RMSE, poly_pm_d, poly_pm_EF
+                              
+                              , SWCPm_a, SWCPm_b, p_SWCPm_b, SWCPm_R2
                               
                               , obs)
           
@@ -608,7 +631,7 @@ swc_residual_sum <- function (DGRsD_SWC) {
 }
 
 
-# function: group R2 difference
+# function: group R2 difference ********** **********
 # comparing R2 difference and seperate it into three groups: (g1) R2 difference < -0.1, (g2) 0.1 > R2 difference > -0.1, (g3) R2 difference > 0.1
 set_r2_dif_group <- function (low, high, sdata) {
   
@@ -618,7 +641,8 @@ set_r2_dif_group <- function (low, high, sdata) {
   return (sdata)
 }
 
-# funtion for outlier testing
+
+# funtion for outlier testing   ********** **********
 outlier_test <- function (sdata, x, y){
   m <- lm( y ~ x, data=sdata )
   sdata$standardized_resids <- rstandard( m )

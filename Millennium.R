@@ -346,35 +346,7 @@ stat_figure_data %>%
 
 print(model_statistic_comparison)
 
-
 # model_p_plot()
-
-# Use PCA to detect which environmental factor effect the surrogates of temperature
-# t_results %>% select(Lat, Lon, Ts_depth, MAP, MAT, Diff, Dif_group) %>% na.omit() -> sub_t_results
-# sub_t_results %>% dplyr::rename(Depth = Ts_depth) -> sub_t_results
-# prcomp(sub_t_results %>% select(Lat, Lon, Depth, MAP, MAT) %>% na.omit(),
-#              center = TRUE,
-#              scale. = TRUE) -> t_PCA 
-# str(t_PCA)
-# summary(t_PCA)
-
-# g <- ggbiplot(t_PCA,
-#               obs.scale = 1,
-#               var.scale = 1,
-#               groups = sub_t_results$Dif_group,
-#               ellipse = T,
-#               circle = T,
-#               ellipse.prob = 0.9,
-#               varname.size =  5 ) 
-# g <- g + scale_color_discrete(name = '')
-# 
-# g <- g + theme_bw()
-# 
-# g <- g + theme(legend.direction = 'horizontal',
-#                legend.position = 'top')
-
-# print(g)
-
 
 # Using logistic regression to study whether latitude, longitude, elevation, MAT, MAP effect whether soil respiration has significant relationship with Tsoil
 # logistic regression to test when p<0.05
@@ -413,7 +385,24 @@ sub_site %>% select(Study_number, Measure_Year, Measure_Month, RS_Norm, Tsoil, T
 
 # get those site with opposite trend
 
+# A PCA example
+# https://www.datacamp.com/community/tutorials/pca-analysis-r
 
+mtcars.pca <- prcomp(mtcars[,c(1:7,10,11)], center = TRUE,scale. = TRUE)
+
+summary(mtcars.pca)
+
+ggbiplot(mtcars.pca)
+
+ggbiplot(mtcars.pca, labels=rownames(mtcars))
+
+mtcars.country <- c(rep("Japan", 3), rep("US",4), rep("Europe", 7),rep("US",3), "Europe", rep("Japan", 3), rep("US",4), rep("Europe", 3), "US", rep("Europe", 3))
+
+ggbiplot(mtcars.pca,ellipse=TRUE,  labels=rownames(mtcars), groups=mtcars.country)
+
+
+
+# Use PCA to detect which environmental factor effect the surrogates of temperature
 
 
 
