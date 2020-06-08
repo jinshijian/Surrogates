@@ -72,7 +72,6 @@ rm_dgrsd_swc_null <- function (sdata) {
 #*****************************************************************************************************************
 
 t_model_sum <- function (DGRsD_TS) {
-  
   # test question 1: whether Ts is good surrogate for Ta?
   # plot Tair vs Rs, Ts vs Rs relationship by site and plot at 'SI-1. Tair for Tsoil.pdf'
   pdf( paste(OUTPUT_DIR,'SI-1. Tair for Tsoil.pdf', sep = "/" ), width=8, height=4)
@@ -112,8 +111,10 @@ t_model_sum <- function (DGRsD_TS) {
         first_a <- summary(first_lm)$coefficients[1,1] %>% round(6)
         first_b <- summary(first_lm)$coefficients[2,1] %>% round(6)
         p_b <- summary(first_lm)$coefficients[2,4]%>% round(6)
-        first_R2 <- summary(first_lm)$r.squared %>% round(6)
+        first_R2 <- summary(first_lm)$adj.r.squared %>% round(6)
         obs <- nrow(sub_site)
+        # Rs <- mean(sub_site$RS_Norm)
+        # Rs_Ts_lm <- mean(first_lm$fitted.values)
         
         # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89. 
         sub_site %>% mutate(slr_pred = predict(first_lm), slr_resid = residuals(first_lm), slr_S_M = (slr_pred-RS_Norm)) -> sub_site
@@ -129,7 +130,8 @@ t_model_sum <- function (DGRsD_TS) {
         poly_c <- summary(poly_lm)$coefficients[3,1] %>% round(6)
         p_poly_b <- summary(poly_lm)$coefficients[2,4] %>% round(6)
         p_c <- summary(poly_lm)$coefficients[3,4] %>% round(6)
-        poly_R2 <- summary(poly_lm)$r.squared %>% round(6)
+        poly_R2 <- summary(poly_lm)$adj.r.squared %>% round(6)
+        # Rs_Ts_poly <- mean(poly_lm$fitted.values)
         
         # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
         sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-RS_Norm)) -> sub_site
@@ -144,8 +146,7 @@ t_model_sum <- function (DGRsD_TS) {
         TsTair_a <- summary(TsTair_lm)$coefficients[1,1] %>% round(6)
         TsTair_b <- summary(TsTair_lm)$coefficients[2,1] %>% round(6)
         p_TsTair_b <- summary(TsTair_lm)$coefficients[2,4]%>% round(6)
-        TsTair_R2 <- summary(TsTair_lm)$r.squared %>% round(6)
-        
+        TsTair_R2 <- summary(TsTair_lm)$adj.r.squared %>% round(6)
         
         # plot all study-site Ts vs Rs results
         plot(sub_site$RS_Norm ~ sub_site$Tsoil
@@ -171,7 +172,8 @@ t_model_sum <- function (DGRsD_TS) {
         first_Tm_a <- summary(first_Tm)$coefficients[1,1] %>% round(6)
         first_Tm_b <- summary(first_Tm)$coefficients[2,1] %>% round(6)
         p_Tm_b <- summary(first_Tm)$coefficients[2,4]%>% round(6)
-        first_Tm_R2 <- summary(first_Tm)$r.squared %>% round(6)
+        first_Tm_R2 <- summary(first_Tm)$adj.r.squared %>% round(6)
+        # Rs_Ta_lm <- mean(first_Tm$fitted.values)
         
         # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89. 
         sub_site %>% mutate(slr_Tm_pred = predict(first_Tm), slr_Tm_resid = residuals(first_Tm), slr_Tm_S_M = (slr_Tm_pred-RS_Norm)) -> sub_site
@@ -205,7 +207,7 @@ t_model_sum <- function (DGRsD_TS) {
           poly_Tm_c <- summary(poly_Tm)$coefficients[3,1] %>% round(6)
           p_poly_Tm_b <- summary(poly_Tm)$coefficients[2,4] %>% round(6)
           p_Tm_c <- summary(poly_Tm)$coefficients[3,4] %>% round(6)
-          poly_Tm_R2 <- summary(poly_Tm)$r.squared %>% round(6) 
+          poly_Tm_R2 <- summary(poly_Tm)$adj.r.squared %>% round(6) 
           
           # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
           sub_site %>% mutate(poly_Tm_pred = predict(poly_Tm), poly_resid = residuals(poly_Tm), poly_Tm_S_M = (poly_Tm_pred-RS_Norm)) -> sub_site
@@ -263,7 +265,6 @@ t_model_sum <- function (DGRsD_TS) {
 #*****************************************************************************************************************
 # function for precipitation surrogates
 #*****************************************************************************************************************
-
 pm_model_sum <- function (DGRsD_SWC) {
   
   # test question 2: wheterh pm is good surrogate of vwc
@@ -310,7 +311,7 @@ pm_model_sum <- function (DGRsD_SWC) {
         first_a <- summary(first_lm)$coefficients[1,1] %>% round(6)
         first_b <- summary(first_lm)$coefficients[2,1] %>% round(6)
         p_b <- summary(first_lm)$coefficients[2,4]%>% round(6)
-        first_R2 <- summary(first_lm)$r.squared %>% round(6)
+        first_R2 <- summary(first_lm)$adj.r.squared %>% round(6)
         obs <- nrow(sub_site)
         
         # swc vs Rs
@@ -328,7 +329,7 @@ pm_model_sum <- function (DGRsD_SWC) {
         poly_c <- summary(poly_lm)$coefficients[3,1] %>% round(6)
         p_poly_b <- summary(poly_lm)$coefficients[2,4] %>% round(6)
         p_c <- summary(poly_lm)$coefficients[3,4] %>% round(6)
-        poly_R2 <- summary(poly_lm)$r.squared %>% round(6)
+        poly_R2 <- summary(poly_lm)$adj.r.squared %>% round(6)
         
         # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
         sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-RS_Norm)) -> sub_site
@@ -342,7 +343,7 @@ pm_model_sum <- function (DGRsD_SWC) {
         SWCPm_a <- summary(SWCPm_lm)$coefficients[1,1] %>% round(6)
         SWCPm_b <- summary(SWCPm_lm)$coefficients[2,1] %>% round(6)
         p_SWCPm_b <- summary(SWCPm_lm)$coefficients[2,4]%>% round(6)
-        SWCPm_R2 <- summary(SWCPm_lm)$r.squared %>% round(6)
+        SWCPm_R2 <- summary(SWCPm_lm)$adj.r.squared %>% round(6)
         
         # Add SWC vs Rs scatter plot dots
         plot(sub_site$RS_Norm ~ sub_site$SWC
@@ -377,7 +378,7 @@ pm_model_sum <- function (DGRsD_SWC) {
         first_pm_a <- summary(first_pm)$coefficients[1,1] %>% round(6)
         first_pm_b <- summary(first_pm)$coefficients[2,1] %>% round(6)
         p_pm_b <- summary(first_pm)$coefficients[2,4]%>% round(6)
-        first_pm_R2 <- summary(first_pm)$r.squared %>% round(6)
+        first_pm_R2 <- summary(first_pm)$adj.r.squared %>% round(6)
         
         # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89. 
         sub_site %>% mutate(slr_pm_pred = predict(first_pm), slr_pm_resid = residuals(first_pm), slr_pm_S_M = (slr_pm_pred-RS_Norm)) -> sub_site
@@ -410,7 +411,7 @@ pm_model_sum <- function (DGRsD_SWC) {
           poly_pm_c <- summary(poly_pm)$coefficients[3,1] %>% round(6)
           p_poly_pm_b <- summary(poly_pm)$coefficients[2,4] %>% round(6)
           p_pm_c <- summary(poly_pm)$coefficients[3,4] %>% round(6)
-          poly_pm_R2 <- summary(poly_pm)$r.squared %>% round(6) 
+          poly_pm_R2 <- summary(poly_pm)$adj.r.squared %>% round(6) 
           
           # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
           sub_site %>% mutate(poly_pm_pred = predict(poly_pm), poly_resid = residuals(poly_pm), poly_pm_S_M = (poly_pm_pred-RS_Norm)) -> sub_site
@@ -468,7 +469,6 @@ pm_model_sum <- function (DGRsD_SWC) {
   return (results)
 }
 
-
 # function: group R2 difference
 # comparing R2 difference and seperate it into three groups: (g1) R2 difference < -0.1, (g2) 0.1 > R2 difference > -0.1, (g3) R2 difference > 0.1
 set_r2_dif_group <- function (low, high, sdata) {
@@ -478,7 +478,6 @@ set_r2_dif_group <- function (low, high, sdata) {
                                           TRUE ~ "High")  ) -> sdata
   return (sdata)
 }
-
 
 #*****************************************************************************************************************
 # Other functions

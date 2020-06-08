@@ -17,6 +17,42 @@ DATA_DIR <- 'data'
 # Create output and log folders if they do not exist
 if(!file.exists(OUTPUT_DIR)) dir.create(OUTPUT_DIR)
 
+#*****************************************************************************************************************
+# function
+#*****************************************************************************************************************
+get_clayOCBD <- function (sdata1, j, var_name) {
+  f <- here::here(c("data/S_BULK_DEN.nc4", "data/S_CLAY.nc4", "data/S_OC.nc4"))
+  # sdata1 = swc_results
+  sdata2 <- nc_open( f[j] )
+  var_factor <- c("S_BULK_DEN", "S_CLAY", "S_OC")
+  
+  # i = 1
+  for (i in 1:nrow(sdata1) ) {
+    
+    # get the lat and lon from sdata1
+    target_lat <- sdata1$Lat[i]
+    target_lon <- sdata1$Lon[i]
+    
+    if (!is.na(target_lat) & !is.na(target_lon)) {
+      # get the closest lat and lon from koeppen
+      
+      lat <- ncvar_get(sdata2, "lat")
+      ilat <- which.min(abs(lat - target_lat))
+      
+      lon <- ncvar_get(sdata2, "lon")
+      ilon <- which.min(abs(lon - target_lon))
+      
+      # get the koeppen information
+      target_value <- ncvar_get(sdata2, var_factor[j], start = c(ilon, ilat), count = c(1, 1))
+      
+      sdata1[i, var_name] <- target_value
+    }
+    
+    else {next}
+    print(paste0("====================", i))
+  }
+  return (sdata1)
+}
 
 # load data
 # SRDB_raw = read.csv(file.path(DATA_DIR,"srdb-data.csv"))
@@ -28,7 +64,9 @@ if(!file.exists(OUTPUT_DIR)) dir.create(OUTPUT_DIR)
 # DGRsD_TS = rm_dgrsd_ts_null(DGRsD)
 # DGRsD_SWC = rm_dgrsd_swc_null(DGRsD)
 
-
+#*****************************************************************************************************************
+# drake
+#*****************************************************************************************************************
 plan = drake_plan(
   # load data
   SRDB_raw = read.csv(file_in(!!file.path(DATA_DIR,"srdb-data.csv"))),
@@ -49,6 +87,7 @@ plan = drake_plan(
   # Precipitation for precipitation (Pm) as a surrogate of soil water content (swc), same logic as above
   swc_results = pm_model_sum(DGRsD_SWC),
   
+  # outputs with residue
   t_residual_results = t_residual_sum(DGRsD_TS),
   swc_residual_results = swc_residual_sum(DGRsD_SWC)
 )
