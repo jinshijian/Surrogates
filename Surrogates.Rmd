@@ -206,7 +206,7 @@ plot_grid(p1, p2, labels = c( "(a)", "(b)" )
           rel_widths = c(1,1.15))
 
 # RColorBrewer::brewer.pal(8, "Set1") # get color code
-ggsave("outputs/Figure1. Site_distribution.jpg", width = 8, height = 4, dpi = 300, units = "in")
+# ggsave("outputs/Figure1. Site_distribution.jpg", width = 8, height = 4, dpi = 300, units = "in")
 
 ```
 
@@ -314,83 +314,11 @@ p6 = p6 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2
 plot_grid(p1, p2, p3
           , p4, p5, p6, ncol = 3)
 
-ggsave("outputs/FigureS2.jpg", width = 8, height = 6, dpi = 300, units = "in")
+# ggsave("outputs/FigureS2.jpg", width = 8, height = 6, dpi = 300, units = "in")
 
 # t_results %>% mutate(p_group = ifelse(p_poly_b <= 0.05 | p_c <= 0.05, "Yes", "No")) %>% select(SiteID, p_poly_b, p_c, p_group)
 t_results %>% filter(p_b >= 0.05 & p_poly_b >= 0.05) %>% nrow() / nrow(t_results)
 ```
-
-
-### Model statistics results for Tm surrogates using PCA
-
-```{r Tm surrogate PCA}
-t_results %>% select(p_b, first_R2, p_Tm_b, first_Tm_R2, first_b, first_Tm_b, p_TsTair_b, TsTair_R2, Biome_group) %>% 
-  na.omit() -> sub_t_results
-
-sub_t_results %>% mutate(group = case_when(p_b < 0.05 & p_Tm_b < 0.05 ~ "A",
-                                           p_b < 0.05 & p_Tm_b >= 0.05 ~ "B",
-                                           p_b >= 0.05 & p_Tm_b < 0.05 ~ "C",
-                                           TRUE ~ "D")) -> sub_t_results
-
-# rename columns
-colnames(sub_t_results) <- c("p(Rs~Tsoil)", "R2(Rs~Tsoil)", "p(Rs~Tair)", "R2(Rs~Tair)",
-                             "beta(Rs~Tsoil)", "beta(Rs~Tair)", "p(Tsoil~Tair)", "R2(Tsoil~Tair)", "Climate", "group" )
-
-write.csv(sub_t_results, "outputs/sub_t_results.csv", col.names = FALSE)
-
-prcomp(sub_t_results %>% select(-group, -Climate, -"beta(Rs~Tsoil)", -"beta(Rs~Tair)") %>% na.omit(),
-             center = TRUE,
-             scale. = TRUE) -> t_PCA
-
-str(t_PCA)
-summary(t_PCA)
-
-# ?ggbiplot()
-
-g_p <- ggbiplot(t_PCA,
-              obs.scale = 1,
-              var.scale = 1,
-              groups = sub_t_results$group,
-              ellipse = T,
-              circle = F,
-              ellipse.prob = 0.9,
-              varname.size =  0,
-              alpha = 0.5
-              ) + scale_color_discrete(name = '') +
-  theme_bw() +
-  theme(legend.direction = 'horizontal',
-               legend.position = 'top') +
-  guides(col = guide_legend(nrow = 2)) 
-
-g_climate <- ggbiplot(t_PCA,
-              obs.scale = 1,
-              var.scale = 1,
-              groups = sub_t_results$Climate,
-              ellipse = T,
-              circle = F,
-              ellipse.prob = 0.9,
-              varname.size = 0,
-              alpha = 0.5
-              ) + scale_color_discrete(name = '') +
-  theme_bw() +
-  theme(legend.direction = 'horizontal',
-               legend.position = 'top') +
-  guides(col = guide_legend(nrow = 2)) 
-
-
-plot_grid(g_p, g_climate,
-          labels = c("  a  ", "  b  "),
-          label_size = 12,
-          vjust = 10, hjust = c(-3.25),
-          rel_widths = c(1, 1.25),
-          ncol = 2 )
-
-ggsave("outputs/Figure2.jpg", dpi = 300, width = 8, height = 5, units = "in")
-
-# ggbiplot(t_PCA)
-# ?ggbiplot()
-```
-
 
 
 #### outlier detecting and removing for RMSE
@@ -513,7 +441,7 @@ t_surrogate %>%
   labs(x=expression(R[S]~"-vs-"~T[air]),
        y=expression(R[S]~"-vs-"~T[soil]))
 
-# ggsave("outputs/FigureS6.jpg", width = 8, height = 5, dpi = 300, units = "in")
+# ggsave("outputs/FigureS3.jpg", width = 8, height = 5, dpi = 300, units = "in")
 
 t_surrogate %>% 
   filter(outlier == "No" & Model_stat != "R2") %>% 
@@ -533,7 +461,7 @@ t_surrogate %>%
        y=expression(R[S]~"-vs-"~T[soil]))
    
 
-# ggsave("outputs/Figure3.jpg", width = 8, height = 5, dpi = 300, units = "in")
+# ggsave("outputs/Figure2.jpg", width = 8, height = 5, dpi = 300, units = "in")
 
 t_surrogate_beta %>% filter(cooks_dist >= 0.005)
 t_surrogate_beta %>% filter(Tsoil > 1 & Model == 'LR')
@@ -544,7 +472,6 @@ t_surrogate_beta %>% filter(Tsoil > 10)
 
 
 ## Precipitation as a surrogate of SWC
-
 ```{r SWC surrogate percentage summary}
 
 # only 171 site with significant polynomial trend
@@ -657,81 +584,12 @@ p6 = p6 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2
 
 plot_grid(p1, p2, p3, p4, p5, p6, ncol = 3)
 
-# ggsave("outputs/FigureS7.jpg", width = 8, height = 6, dpi = 300, units = "in")
+# ggsave("outputs/FigureS4.jpg", width = 8, height = 6, dpi = 300, units = "in")
 
 swc_results %>% mutate(p_group = ifelse(p_poly_b <= 0.05 | p_c <= 0.05, "Yes", "No")) %>% select(SiteID, p_poly_b, p_c, p_group)
   
 ```
 
-
-
-```{r Pm surrogate PCA}
-swc_results %>% select(p_b, slr_d, p_pm_b, first_pm_b, first_b, slr_pm_d, p_SWCPm_b, SWCPm_b, Biome_group) %>% 
-  na.omit() -> sub_swc_results
-
-sub_swc_results %>% mutate(group = case_when(p_b < 0.05 & p_pm_b < 0.05 ~ "A",
-                                           p_b < 0.05 & p_pm_b >= 0.05 ~ "B",
-                                           p_b >= 0.05 & p_pm_b < 0.05 ~ "C",
-                                           TRUE ~ "D")) -> sub_swc_results
-
-# rename columns
-colnames(sub_swc_results) <- c("p(Rs~SWC)", "R2(Rs~SWC)", "p(Rs~Pm)", "R2(Rs~Pm)", "beta(Rs~SWC)", "beta(Rs~Pm)"
-                               , "p(SWC~Pm)", "R2(SWC~Pm)", "Climate", "group" )
-
-
-prcomp(sub_swc_results %>% select(-group, -Climate
-                                  # , -"beta(Rs~SWC)", -"beta(Rs~Pm)"
-                                  ,-"R2(Rs~SWC)", -"R2(Rs~Pm)", -"R2(SWC~Pm)"
-                                  ) %>% na.omit(),
-             center = TRUE,
-             scale. = TRUE) -> swc_PCA
-
-str(swc_PCA)
-summary(swc_PCA)
-
-# ggbiplot(swc_PCA)
-
-g_swc <- ggbiplot(swc_PCA,
-              obs.scale = 1,
-              var.scale = 1,
-              groups = sub_swc_results$group,
-              ellipse = T,
-              circle = F,
-              ellipse.prob = 0.9,
-              varname.size = 3,
-              alpha = 0.5
-              ) + scale_color_discrete(name = '') + theme_bw() +
-  theme(legend.direction = 'horizontal',
-               legend.position = 'top') +
-  guides(col = guide_legend(nrow = 2)) 
-
-g_climate_swc <- ggbiplot(swc_PCA,
-              obs.scale = 1,
-              var.scale = 1,
-              groups = sub_swc_results$Climate,
-              ellipse = T,
-              circle = F,
-              ellipse.prob = 0.9,
-              varname.size = 0,
-              alpha = 0.5
-              ) + 
-  scale_color_discrete(name = '') +
-  theme_bw() +
-  theme(legend.direction = 'horizontal',
-               legend.position = 'top') +
-  guides(col = guide_legend(nrow = 2)) 
-
-
-plot_grid(g_swc, g_climate_swc,
-          labels = c("a", "b"),
-          label_size = 12,
-          vjust = 10.5, hjust = c(-8, -7.25),
-          rel_widths = c(1, 1.07),
-          ncol = 2 )
-
-# ggsave("outputs/Figure4.jpg", dpi = 300, width = 8.25, height = 4, units = "in")
-# ggbiplot(swc_PCA)
-```
 
 #### Outlier detecting and data preparation
 ```{r}
@@ -810,7 +668,6 @@ swc_surrogate <- bind_rows(swc_surrogate_beta, swc_surrogate_r2, swc_surrogate_r
 
 #### plot results
 ```{r swc statistic evaluation values comparison}
-
 # 105 site p < 0.05
 swc_results %>% select(`SWC` = first_R2, `Pm` = first_pm_R2, p_b, p_pm_b) %>% 
   filter(p_b < 0.05 & p_pm_b < 0.05) %>% nrow() 
@@ -829,7 +686,7 @@ swc_surrogate %>%
   labs(x=expression(R[S]~"-vs-"~P[m]),
        y=expression(R[S]~"-vs-"~SWC))
 
-# ggsave("outputs/FigureS10.jpg", width = 8, height = 5, dpi = 300, units = "in")
+# ggsave("outputs/FigureS5.jpg", width = 8, height = 5, dpi = 300, units = "in")
 
 swc_surrogate %>% 
   filter(outlier == "No" & Model_stat != "R2") %>%
@@ -843,14 +700,14 @@ swc_surrogate %>%
   labs(x=expression(R[S]~"-vs-"~P[m]),
        y=expression(R[S]~"-vs-"~SWC))
 
-ggsave("outputs/Figure5.jpg", width = 8, height = 5, dpi = 300, units = "in")
+# ggsave("outputs/Figure3.jpg", width = 8, height = 5, dpi = 300, units = "in")
 
 ```
 
 
 ## Supplemental figures for manuscript
 * Linear regression to test whether Latitude, longitude, elevation, MAT, and MAP effect the surrogates
-```{r Figure XXX}
+```{r}
 t_results %>% mutate(p_group = ifelse(p_b <= 0.05, 1, 0)) %>% select(Study_number, SiteID, Ts_depth, Ele, Lat, Lon, MAT, MAP, Diff, p_b, p_group, Biome_group) %>%
   na.omit() -> sub_t_results
 
@@ -888,15 +745,12 @@ ggplot(data = t_results, aes(Measure_year, Diff)) + geom_point(col = "gray", alp
 plot_grid (p1, p2, p3, p4,p5,p6, ncol = 2, labels = c("(a)", "(b)", "(c)", "(d)", "(e)", "(f)")
            , hjust = c(-3,-3,-3,-3,-3,-4), vjust = c(2))
 
-# ggsave("outputs/FigureS11.jpg", dpi = 300, width = 8, height = 7, units = "in")
+# ggsave("outputs/FigureSX.jpg", dpi = 300, width = 8, height = 7, units = "in")
 ```
-
-
 
 
 * Linear regression to test whether Latitude, longitude, elevation, MAT, and MAP effect the surrogates
 ```{r}
-
 swc_results %>% select(Lat, Lon, SWCdepth, MAP, MAT, poly_R2, poly_pm_R2) %>% na.omit() %>% mutate(Diff = poly_R2 - poly_pm_R2) -> sub_swc_results
 
 summary(lm(Diff~abs(Lat), data = sub_swc_results))
@@ -947,15 +801,13 @@ ggplot(data = swc_results %>% mutate(Diff = poly_R2 - poly_pm_R2), aes(Measure_y
 plot_grid (p1, p2, p3, p4,p5, p6, ncol = 2, labels = c("(a)", "(b)", "(c)", "(d)", "(e)", "(f)")
            , hjust = c(-3,-3,-3,-3,-3,-4), vjust = c(2))
 
-# ggsave("outputs/FigureS12.jpg", dpi = 300, width = 8, height = 7, units = "in")
+# ggsave("outputs/FigureSX.jpg", dpi = 300, width = 8, height = 7, units = "in")
 ```
 
 
-
-
 ## Supplemental figures 
-### Figure S1 - Ts and SWC measure frequancy
-```{r Figure-S3}
+### Figure S - Ts and SWC measure frequancy
+```{r}
 # soil temperature depth 
 ggplot(DGRsD) +
   aes(TsDepth) +
@@ -1026,17 +878,12 @@ plot_grid (p1, p3, p4, p2, p5, p6, ncol = 3
            , labels = c("(a)", "(b)", "(c)", "(d)", "(e)", "(f)")
            , hjust = c(-3.75, -3.75,-3.85, -3.75, -3.75, -5), vjust = c(2))
 
-# ggsave("outputs/FigureS3.jpg", dpi = 300, width = 8, height = 6, units = "in")
+# ggsave("outputs/FigureSX.jpg", dpi = 300, width = 8, height = 6, units = "in")
 
 ```
 
 
-
-
-
-
-
-```{r Figure6}
+```{r Figure4}
 # Rs vs Pm_Del 
 SLR_T <- function (sdata, climate) {
   sdata %>% filter(!is.na(sdata$Tsoil) & !is.na(sdata$Tm_Del) & sdata$Climate_type == climate) -> subdata 
@@ -1075,13 +922,13 @@ DGRsD %>% select(SWC, Pm_Del, Climate_type) %>% na.omit() %>%
 plot_grid(p1, p2, ncol = 2
           , hjust = c(-2), vjust = c(2))
 
-# ggsave("outputs/Figure6.jpg", width = 8, height = 7, dpi = 300, units = "in")
+# ggsave("outputs/Figure4.jpg", width = 8, height = 7, dpi = 300, units = "in")
 
 ```
 
 
 
-```{r Figure-S11}
+```{r Figure-S6}
 # Rs vs VWC by climate region, show very weak relationship
 # linear repression and statistics
 SLR_sum <- function (sdata, climate) {
@@ -1165,13 +1012,13 @@ plot_grid(plot_vwc, plot_pm)
 # grid.arrange(plot_vwc, plot_pm, ncol = 2)
 
 # plot_vwc
-ggsave("outputs/FigureS11.jpg", width = 8, height = 7, dpi = 300, units = "in")
+# ggsave("outputs/FigureS6.jpg", width = 8, height = 7, dpi = 300, units = "in")
 
 ```
 
 
 
-```{r Figure-S13}
+```{r Figure-S7}
 # See how SWC measure_years
 DGRsD_SWC %>% 
   filter(stringr::str_detect(SWC_Comments, 'Oven') )
@@ -1201,752 +1048,9 @@ DGRsD_SWC %>% mutate( SWC_Method = case_when(stringr::str_detect(SWC_Comments, '
   xlab(expression(Measure~year)) +
   ylab(expression(SWC~"(%)"))
 
-# ggsave("outputs/FigureS12.jpg", width = 4, height = 6, units = "in", dpi = 300)
+# ggsave("outputs/FigureS7.jpg", width = 4, height = 6, units = "in", dpi = 300)
 
 ```
 
 
-
-## Supplemental information - Temperature surrogate
-
-```{r Figure-S4}
-# compare R2 of SLR and polynomial models
-t_results %>% filter(p_b <= 0.05) %>% select (p_b, p_Tm_b, first_R2, first_Tm_R2) %>% nrow() -> obs1
-t_results %>% filter(p_b <= 0.05) %>% select (p_b, p_Tm_b, first_R2, first_Tm_R2) %>% 
-  ggplot(aes(x = paste0("Tsoil (n=", obs1, ")"), y = first_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = I(0.25)) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(LR)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=12)
-        , axis.title.y = element_text(size = 12)) -> p1
-
-t_results %>% filter(p_Tm_b <= 0.05) %>% select (p_b, p_Tm_b, first_R2, first_Tm_R2) %>% nrow() -> obs2
-t_results %>% filter(p_Tm_b <= 0.05) %>% select (p_b, p_Tm_b, first_R2, first_Tm_R2) %>% 
-  ggplot(aes(x = paste0("Tair (n=", obs2, ")"), y = first_Tm_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = I(0.25)) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(LR)")) +
-  theme(axis.title.x = element_blank()
-        , axis.text = element_text(size = 12)
-        , axis.title.y = element_text(size = 12)) -> p2
-
-# compare R2 of Polynomial model
-t_results %>% filter(p_c <= 0.05) %>% select (p_c, p_Tm_c, poly_R2, poly_Tm_R2) %>% nrow() -> obs3
-t_results %>% filter(p_c <= 0.05) %>% select (p_c, p_Tm_c, poly_R2, poly_Tm_R2) %>% 
-  ggplot(aes(x = paste0("Tsoil (n=", obs3, ")"), y = poly_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = I(0.25)) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(Polynomial)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=12)
-        , axis.title.y = element_text(size = 12)) -> p3
-
-t_results %>% filter(p_Tm_c <= 0.05) %>% select (p_c, p_Tm_c, poly_R2, poly_Tm_R2) %>% nrow() -> obs4
-t_results %>% filter(p_Tm_c <= 0.05) %>% select (p_c, p_Tm_c, poly_R2, poly_Tm_R2) %>% 
-  ggplot(aes(x = paste0("Tair (n=", obs4, ")"), y = poly_Tm_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = I(0.25)) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(Polynomial)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=12)
-        , axis.title.y = element_text(size = 12)) -> p4
-
-plot_grid(p1, p2, p3, p4, labels = c("(a)", "(b)", "(c)", "(d)")
-          , vjust = 2, hjust = c(-4), ncol = 2 )
-
-ggsave("outputs/FigureS4.jpg", width = 8, height = 6, dpi = 300, units = "in")
-
-t_results %>% filter(p_b <= 0.05) %>% select (p_b, p_Tm_b, first_R2, first_Tm_R2) %>% summarise(median(first_R2))
-t_results %>% filter(p_b <= 0.05) %>% nrow()
-t_results %>% filter(p_Tm_b <= 0.05) %>% select (p_b, p_Tm_b, first_R2, first_Tm_R2) %>% summarise(median(first_Tm_R2))
-t_results %>% filter(p_Tm_b <= 0.05) %>% nrow()
-
-t_results %>% filter(p_c <= 0.05) %>% select (p_c, p_Tm_c, poly_R2, poly_Tm_R2) %>% summarise(median(poly_R2))
-t_results %>% filter(p_Tm_c <= 0.05) %>% select (p_c, p_Tm_c, poly_R2, poly_Tm_R2) %>% summarise(median(poly_Tm_R2))
-
-```
-
-
-
-* Calculate and show the threshold of Tsoil and Tair to soil respiration
-* Note that only those sites with p<0.05 (significant) were included
-* threhold of Tsoil and Tair
-```{r Temperature threshold, fig.height=4, fig.width=4}
-# calculate Tsoil threshold and Tair threshold
-t_results %>% mutate (thd_Tsoil = -poly_b/(2*poly_c), thd_Tair = -poly_Tm_b/(2*poly_Tm_c)) -> t_results
-
-# plot and comparison
-t_results %>% filter(p_poly_b <= 0.05 & poly_c < 0 & thd_Tsoil < 65) %>% nrow() -> obs5
-t_results %>% filter(p_poly_b <= 0.05 & poly_c < 0 & thd_Tsoil < 65) %>% 
-  ggplot(aes(x = paste0("Tsoil (n=", obs5, ")"), y = thd_Tsoil)) + geom_violin() + 
-  geom_quasirandom(alpha = I(0.25)) +
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(Threshold~"(Tsoil"~degree~C~")")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=10)
-        , axis.title.y = element_text(size = 10)) -> p1
-
-# threshold of Tair
-
-t_results %>% filter(p_poly_Tm_b <= 0.05 & poly_Tm_c < 0 & thd_Tair < 65) %>% nrow() -> obs7
-t_results %>% filter(p_poly_Tm_b <= 0.05 & poly_Tm_c < 0 & thd_Tair < 65) %>% 
-  ggplot(aes(x = paste0("Tair (n=", obs7, ")"), y = thd_Tair)) + geom_violin() + 
-  geom_quasirandom(alpha = I(0.25)) +
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(Threshold~"(Tair"~degree~C~")")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=10)
-        , axis.title.y = element_text(size = 10)) -> p2
-
-plot_grid(p1, p2, labels = c( "(a)", "(b)" )
-          , vjust = 2, hjust = c(-3), ncol = 1 )
-
-# ggsave("outputs/FigureS.jpg", width = 4, height = 4, dpi = 300, units = "in")
-
-t_results %>% filter(p_poly_b <= 0.05 & poly_c < 0 & thd_Tsoil < 65) %>% summarise(median(thd_Tsoil))
-t_results %>% filter(p_poly_Tm_b <= 0.05 & poly_Tm_c < 0 & thd_Tair < 65) %>% summarise(median(thd_Tair))
-
-```
-
-
-* Using box plot to show the comparison
-
-```{r Figure-S5}
-t_results %>% filter(Ecosystem_group == "Plantation") %>% na.omit() %>% nrow()
-t_results %>% filter(Ecosystem_group == "Wetland") %>% na.omit() %>% nrow()
-
-t_results %>% na.omit() %>% ggplot( aes(y = Diff, x = Biome_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + theme(axis.text.x = element_text(angle = 25, hjust = 1)) + 
-  ylab(expression(SLR~R^{2}~difference)) -> p1
-
-t_results %>% na.omit() %>% ggplot( aes(y = Diff, x = Ecosystem_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + theme(axis.text.x = element_text(angle = 25, hjust = 1)) +
-  ylab(expression(SLR~R^{2}~difference)) -> p2
-
-t_results %>% na.omit() %>% ggplot( aes(y = Diff, x = Leaf_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + ylab(expression(SLR~R^{2}~difference)) -> p3
-
-t_results %>% na.omit() %>% ggplot( aes(y = Diff, x = Drainage_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + ylab(expression(SLR~R^{2}~difference)) -> p4
-
-plot_grid(p1, p2, p3, p4, labels = c("(a)", "(b)", "(c)", "(d)")
-          , ncol = 2
-          , hjust = c(-3.25), vjust = c(2))
-
-
-# PCA approach
-
-t_results %>% select(p_b, first_R2, p_Tm_b, first_Tm_R2, first_b, first_Tm_b, p_TsTair_b, TsTair_R2
-                     , Biome_group, Ecosystem_group, Leaf_group, Drainage_group
-                     , MAT, MAP, Ele
-                     ) %>% 
-  na.omit() -> sub_t_results
-
-sub_t_results$MAT_factor <- factor(cut( sub_t_results$MAT, 6 ))
-sub_t_results$MAP_factor <- factor(cut( sub_t_results$MAP, 6 ))
-sub_t_results$Ele_factor <- factor(cut( sub_t_results$Ele, 6 ))
-
-sub_t_results %>% mutate(group = case_when(p_b < 0.05 & p_Tm_b < 0.05 ~ "A",
-                                           p_b < 0.05 & p_Tm_b >= 0.05 ~ "B",
-                                           p_b >= 0.05 & p_Tm_b < 0.05 ~ "C",
-                                           TRUE ~ "D")) -> sub_t_results
-
-
-# rename columns
-colnames(sub_t_results) <- c("p(Rs~Tsoil)", "R2(Rs~Tsoil)", "p(Rs~Tair)", "R2(Rs~Tair)",
-                             "beta(Rs~Tsoil)", "beta(Rs~Tair)", "p(Tsoil~Tair)", "R2(Tsoil~Tair)", "Climate"
-                             , "Ecosystem", "Leaf", "Drainage"
-                             , "MAT", "MAP", "Ele", "MAT_factor", "MAP_factor", "Ele_factor"
-                             , "group" )
-
-sub_t_results %>% mutate(Ecosystem = case_when(Ecosystem == "Agriculture"~"Ag",
-                                   Ecosystem == "Grassland"~"Gra",
-                                   Ecosystem == "Savanna"~"Sav",
-                                   Ecosystem == "Desert"~"Des",
-                                   Ecosystem == "Shrubland"~"Shr",
-                                   Ecosystem == "Forest"~"For",
-                                   Ecosystem == "Plantation"~"Pla",
-                                   Ecosystem == "Wetland"~"Wet",
-                                   TRUE~"NR")) -> sub_t_results
-
-
-sub_t_results %>% mutate(Drainage = case_when(Drainage == "Dry"~"Dry ",
-                                          Drainage == "Wet"~"Wet ",
-                                          TRUE~"NR")) -> sub_t_results
-
-# unique(sub_t_results$MAP_factor)
-sub_t_results %>% mutate(MAP_factor = case_when(MAP_factor == "(188,936]"~" (188,936]",
-                                                MAP_factor == "(936,1.68e+03]"~"(936,1680]",
-                                                MAP_factor == "(1.68e+03,2.42e+03]"~"(1680,2420]",
-                                                MAP_factor == "(2.42e+03,3.17e+03]"~"(2420,3170]",
-                                                MAP_factor == "(3.17e+03,3.91e+03]"~"(3170,3910]",
-                                                MAP_factor == "(3.91e+03,4.66e+03]"~"(3910,4660]",
-                                                TRUE~"NR")) -> sub_t_results
-
-# unique(sub_t_results$Ele_factor)
-                  
-sub_t_results %>% mutate(Ele_factor = case_when(Ele_factor == "(-3.13,774]"~" (-3.13,774]",
-                                                Ele_factor == "(774,1.55e+03]"~" (774,1550]",
-                                                Ele_factor == "(1.55e+03,2.32e+03]"~"(1550,2320]",
-                                                Ele_factor == "(2.32e+03,3.09e+03]"~"(2320,3090]",
-                                                Ele_factor == "(3.09e+03,3.86e+03]"~"(3090,3860]",
-                                                Ele_factor == "(3.86e+03,4.64e+03]"~"(3860,4640]",
-                                                TRUE~"NR")) -> sub_t_results
-
-prcomp(sub_t_results %>% select(-group, -Climate, -MAT, -MAP, -Ele, 
-                                -"Ecosystem", -"Leaf", -"Drainage",
-                                - "MAT_factor", - "MAP_factor", - "Ele_factor",
-                                -"beta(Rs~Tsoil)", -"beta(Rs~Tair)") %>% na.omit(),
-             center = TRUE,
-             scale. = TRUE) -> t_PCA
-
-
-
-str(t_PCA)
-summary(t_PCA)
-
-# ggbiplot(t_PCA)
-
-pca_plot <- function(var_factor) {
-  g1 <- ggbiplot(t_PCA,
-              obs.scale = 1,
-              var.scale = 1,
-              groups = var_factor,
-              ellipse = T,
-              circle = F,
-              ellipse.prob = 0.9,
-              varname.size =  2.5,
-              alpha = 0.25
-              ) + 
-  scale_color_discrete(name = '') +
-  theme_bw() +
-  theme(legend.direction = 'horizontal',
-        legend.position = 'top',
-        axis.title = element_text(size = 8)
-        ) +
-  guides(col = guide_legend(nrow = 3)) 
-  
-  return(g1)
-}
-
-
-plot_grid(pca_plot(sub_t_results$Ecosystem),
-          pca_plot(sub_t_results$Leaf),
-          pca_plot(sub_t_results$Drainage),
-          pca_plot(sub_t_results$MAT_factor),
-          pca_plot(sub_t_results$MAP_factor),
-          pca_plot(sub_t_results$Ele_factor),
-          labels = c("Ecosystem", "Leaf", "Drainage", "MAT", "MAP", "Elevation"),
-          label_size = 9,
-          vjust = 11, hjust = c(-1.3,-3.5,-1.725,-3.25,-3.25,-1.6),
-          ncol = 3 )
-
-# ?plot_grid()
-# ggsave("outputs/FigureS5.jpg", dpi = 300, width = 9, height = 7, units = "in")
-
-```
-
-
-```{r}
-# hierarchy classfication
-sub_t_results %>% 
-  select("Climate", "Ecosystem", "Leaf", "Drainage", "MAT", "MAP", "Ele") %>% 
-  na.omit() ->
-  sub_t_cluster
-
-hclust_avg <- hclust(sub_t_cluster, method = 'average')
-plot(hclust_avg)
-```
-
-
-
-### Residual plots for Tair surrogates
-
-```{r Figure-S13 Temperature-Resicual}
-# reorganize data for plot
-bind_rows(
-  # SLR-Tsoil
-  t_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = slr_pred, `Residual` = slr_resid) %>% 
-  mutate(Predictor = "SLR-Tsoil"),
-  # SLR-Tair
-  t_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = slr_tm_pred, `Residual` = slr_tm_resid) %>% 
-  mutate(Predictor = "SLR-Tair"),
-  # Poly-Tsoil
-  t_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = poly_pred, `Residual` = poly_resid) %>% 
-  mutate(Predictor = "Polynomial-Tsoil"),
-  # poly-Pm
-  t_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = poly_tm_pred, `Residual` = poly_tm_resid) %>% 
-  mutate(Predictor = "Polynomial-Tair")
-  ) %>% 
-  ggplot(aes(Predicted_Rs, Residual)) + geom_point(alpha = 0.1) +
-  facet_grid(rows = vars(Climate), cols = vars(Predictor)) +
-  labs(x = expression(Predicted~R[S]~"( g C m"^{-2}~s^{-1}~")"))
-
-ggsave("outputs/FigureS13.jpg", dpi = 300, width = 8, height = 8, units = "in")
-```
-
-
-
-## Precipitation as surrogate of SWC
-
-
-```{r Figure-S8}
-# compare R2 of SLR 
-swc_results %>% filter(p_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% nrow() -> obs1
-swc_results %>% filter(p_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% 
-  ggplot(aes(x = paste0("SWC (n=", obs1, ")"), y = first_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = 0.5) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(LR)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=12)
-        , axis.title.y = element_text(size = 12)) -> p1
-
-swc_results %>% filter(p_pm_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% nrow() -> obs2
-swc_results %>% filter(p_pm_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% 
-  ggplot(aes(x = paste0("Precipitation (n=", obs2, ")"), y = first_pm_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = 0.5) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(LR)")) +
-  theme(axis.title.x = element_blank()
-        , axis.text = element_text(size = 12)
-        , axis.title.y = element_text(size = 12)) -> p2
-
-# compare R2 of Polynomial model
-swc_results %>% filter(p_c <= 0.05) %>% select (p_c, p_pm_c, poly_R2, poly_pm_R2) %>% nrow() -> obs3
-swc_results %>% filter(p_c <= 0.05) %>% select (p_c, p_pm_c, poly_R2, poly_pm_R2) %>% 
-  ggplot(aes(x = paste0("SWC (n=", obs3, ")"), y = poly_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = 0.5) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(Polynomial)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=12)
-        , axis.title.y = element_text(size = 12)) -> p3
-
-swc_results %>% filter(p_pm_c <= 0.05) %>% select (p_c, p_pm_c, poly_R2, poly_pm_R2) %>% nrow() -> obs4
-swc_results %>% filter(p_pm_c <= 0.05) %>% select (p_c, p_pm_c, poly_R2, poly_pm_R2) %>% 
-  ggplot(aes(x = paste0("Precipitation (n=", obs4, ")"), y = poly_pm_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = 0.5) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(Polynomial)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=12)
-        , axis.title.y = element_text(size = 12)) -> p4
-
-plot_grid(p1, p2, p3, p4, labels = c("(a)", "(b)", "(c)", "(d)")
-          , vjust = 2, hjust = c(-4), ncol = 2 )
-
-ggsave("outputs/FigureS8.jpg", width = 8, height = 6, dpi = 300, units = "in")
-
-swc_results %>% filter(p_b < 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% summarise(median(first_R2))
-swc_results %>% filter(p_pm_b < 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% summarise(median(first_pm_R2))
-
-swc_results %>% filter(p_c < 0.05) %>% select (p_c, p_pm_c, poly_R2, poly_pm_R2) %>% summarise(median(poly_R2))
-swc_results %>% filter(p_pm_c < 0.05) %>% select (p_c, p_pm_c, poly_R2, poly_pm_R2) %>% summarise(median(poly_pm_R2))
-
-swc_results %>% filter(p_b < 0.05 & p_pm_b < 0.05) %>% nrow()
-swc_results %>% filter(p_b < 0.05 & p_pm_b < 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% summarise(median(first_R2))
-swc_results %>% filter(p_pm_b < 0.05 & p_pm_b < 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% summarise(median(first_pm_R2))
-
-```
-
-
-
-```{r SWC threshold, fig.height=6, fig.width=4}
-# threshold of GWC
-swc_results %>% filter(p_poly_b <= 0.05 & p_c <= 0.05 & var_swc == "GWC") %>% nrow() -> obs5
-swc_results %>% filter(p_poly_b <= 0.05 & p_c <= 0.05 & var_swc == "GWC") %>% 
-  ggplot(aes(x = paste0("GWC (n=", obs5, ")"), y = thd_swc)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = 0.5) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(Threshold~"(GWC %)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=10)
-        , axis.title.y = element_text(size = 10)) -> p1
-
-# threshold of VWC
-swc_results %>% filter(p_poly_b <= 0.05 & p_c <= 0.05 & var_swc == "VWC") %>% nrow() -> obs6
-swc_results %>% filter(p_poly_b <= 0.05 & p_c <= 0.05 & var_swc == "VWC") %>% 
-  ggplot(aes(x = paste0("VWC (n=", obs6, ")"), y = thd_swc)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = 0.5) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(Threshold~"(VWC %)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=10)
-        , axis.title.y = element_text(size = 10)) -> p2
-
-
-# threshold of Pm
-
-swc_results %>% filter(p_poly_pm_b <= 0.05 & p_pm_c <= 0.05) %>% nrow() -> obs7
-swc_results %>% filter(p_poly_pm_b <= 0.05 & p_pm_c <= 0.05) %>% 
-  ggplot(aes(x = paste0("Precipitation (n=", obs7, ")"), y = thd_pm)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = 0.5) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(Threshold~"(Pm, mm"~month^{-1}~")")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=10)
-        , axis.title.y = element_text(size = 10)) -> p3
-
-plot_grid(p1, p2, p3, labels = c( "(a)", "(b)", "(c)" )
-          , vjust = 2, hjust = c(-4), ncol = 1 )
-
-# ggsave("outputs/FigureS.jpg", width = 4, height = 6, dpi = 300, units = "in")
-
-```
-
-
-
-```{r Figure-S9}
-swc_results %>% na.omit() %>% ggplot( aes(y = poly_R2 - poly_pm_R2, x = Biome_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + theme(axis.text.x = element_text(angle = 25, hjust = 1)) + 
-  ylab(expression(Poly~R^{2}~difference)) -> p1
-
-swc_results %>% na.omit() %>% ggplot( aes(y = poly_R2 - poly_pm_R2, x = Ecosystem_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + theme(axis.text.x = element_text(angle = 25, hjust = 1)) +
-  ylab(expression(Poly~R^{2}~difference)) -> p2
-
-swc_results %>% na.omit() %>% ggplot( aes(y = poly_R2 - poly_pm_R2, x = Leaf_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + ylab(expression(Poly~R^{2}~difference)) -> p3
-
-swc_results %>% na.omit() %>% ggplot( aes(y = poly_R2 - poly_pm_R2, x = Drainage_group) ) + geom_boxplot( width = 0.5) +
-  theme(axis.title.x = element_blank()) + ylab(expression(Poly~R^{2}~difference)) -> p4
-
-plot_grid(p1, p2, p3, p4, labels = c("(a)", "(b)", "(c)", "(d)")
-          , ncol = 2
-          , hjust = c(-3.25), vjust = c(2))
-
-
-# PCA approach
-
-swc_results %>% select(p_b, first_R2, p_pm_b, first_pm_R2, first_b, first_pm_b, p_SWCPm_b, SWCPm_R2
-                     , Biome_group, Ecosystem_group, Leaf_group, Drainage_group
-                     , MAT, MAP, Ele
-                     , Clay, BD, OC
-                     ) %>% 
-  na.omit() -> sub_swc_results
-
-sub_swc_results$MAT_factor <- factor(cut( sub_swc_results$MAT, 6 ))
-sub_swc_results$MAP_factor <- factor(cut( sub_swc_results$MAP, 6 ))
-sub_swc_results$Ele_factor <- factor(cut( sub_swc_results$Ele, 6 ))
-
-sub_swc_results$Clay_factor <- factor(cut( sub_swc_results$Clay, 6 ))
-sub_swc_results$BD_factor <- factor(cut( sub_swc_results$BD, 6 ))
-sub_swc_results$OC_factor <- factor(cut( sub_swc_results$OC, 6 ))
-
-sub_swc_results %>% mutate(group = case_when(p_b < 0.05 & p_pm_b < 0.05 ~ "A",
-                                           p_b < 0.05 & p_pm_b >= 0.05 ~ "B",
-                                           p_b >= 0.05 & p_pm_b < 0.05 ~ "C",
-                                           TRUE ~ "D")) -> sub_swc_results
-
-
-# rename columns
-colnames(sub_swc_results) <- c("p(Rs~SWC)", "R2(Rs~SWC)", "p(Rs~Pm)", "R2(Rs~Pm)"
-                               ,"beta(Rs~SWC)", "beta(Rs~Pm)", "p(SWC~Pm)", "R2(SWC~Pm)", "Climate"
-                               , "Ecosystem", "Leaf", "Drainage"
-                               , "MAT", "MAP", "Ele"
-                               , "Clay", "BD", "OC"
-                               , "MAT_factor", "MAP_factor", "Ele_factor"
-                               , "Clay_factor", "BD_factor", "OC_factor"
-                               , "group" )
-
-sub_swc_results %>% mutate(Ecosystem = case_when(Ecosystem == "Agriculture"~"Ag",
-                                   Ecosystem == "Grassland"~"Gra",
-                                   Ecosystem == "Savanna"~"Sav",
-                                   Ecosystem == "Desert"~"Des",
-                                   Ecosystem == "Shrubland"~"Shr",
-                                   Ecosystem == "Forest"~"For",
-                                   Ecosystem == "Plantation"~"Pla",
-                                   Ecosystem == "Wetland"~"Wet",
-                                   TRUE~"NR")) -> sub_swc_results
-
-
-sub_swc_results %>% mutate(Drainage = case_when(Drainage == "Dry"~"Dry ",
-                                          Drainage == "Wet"~"Wet ",
-                                          TRUE~"NR")) -> sub_swc_results
-
-# unique(sub_swc_results$MAP_factor)
-sub_swc_results %>% mutate(MAP_factor = case_when(MAP_factor == "(188,936]"~" (188,936]",
-                                                MAP_factor == "(936,1.68e+03]"~" (936,1680]",
-                                                MAP_factor == "(1.68e+03,2.42e+03]"~"(1680,2420]",
-                                                MAP_factor == "(2.42e+03,3.17e+03]"~"(2420,3170]",
-                                                MAP_factor == "(3.17e+03,3.91e+03]"~"(3170,3910]",
-                                                MAP_factor == "(3.91e+03,4.66e+03]"~"(3910,4660]",
-                                                TRUE~"NR")) -> sub_swc_results
-
-# unique(sub_swc_results$Ele_factor)
-                  
-sub_swc_results %>% mutate(Ele_factor = case_when(Ele_factor == "(0.37,777]"~" (0.37,777]",
-                                                Ele_factor == "(777,1.55e+03]"~" (777,1550]",
-                                                Ele_factor == "(1.55e+03,2.32e+03]"~"(1550,2320]",
-                                                Ele_factor == "(2.32e+03,3.09e+03]"~"(2320,3090]",
-                                                # Ele_factor == "(3.09e+03,3.86e+03]"~"(3090,3860]",
-                                                Ele_factor == "(3.86e+03,4.64e+03]"~"(3090,4640]",
-                                                TRUE~"NR")) -> sub_swc_results
-
-
-# Get clay%, OC%, and BD from HWSD *********** ********** **********
-# get soil CEC
-
-
-
-prcomp(sub_swc_results %>% select(-group, -Climate, -MAT, -MAP, -Ele, -Clay, -BD, -OC,
-                                -"Ecosystem", -"Leaf", -"Drainage",
-                                - "MAT_factor", - "MAP_factor", - "Ele_factor",
-                                -"Clay_factor", -"BD_factor", -"OC_factor",
-                                -"beta(Rs~SWC)", -"beta(Rs~Pm)") %>% na.omit(),
-             center = TRUE,
-             scale. = TRUE) -> swc_PCA
-
-
-str(swc_PCA)
-summary(swc_PCA)
-
-# ggbiplot(swc_PCA)
-
-pca_plot_swc <- function(var_factor) {
-  g1 <- ggbiplot(swc_PCA,
-              obs.scale = 1,
-              var.scale = 1,
-              groups = var_factor,
-              ellipse = T,
-              circle = F,
-              ellipse.prob = 0.9,
-              varname.size =  2.5,
-              alpha = 0.25
-              ) + 
-  scale_color_discrete(name = '') +
-  theme_bw() +
-  theme(legend.direction = 'horizontal',
-        legend.position = 'top',
-        axis.title = element_text(size = 8)
-        ) +
-  guides(col = guide_legend(nrow = 3)) 
-  
-  return(g1)
-}
-
-
-plot_grid(pca_plot_swc(sub_swc_results$Ecosystem),
-          pca_plot_swc(sub_swc_results$Leaf),
-          pca_plot_swc(sub_swc_results$Drainage),
-          pca_plot_swc(sub_swc_results$MAT_factor),
-          pca_plot_swc(sub_swc_results$MAP_factor),
-          pca_plot_swc(sub_swc_results$Ele_factor),
-          pca_plot_swc(sub_swc_results$Clay_factor),
-          pca_plot_swc(sub_swc_results$BD_factor),
-          pca_plot_swc(sub_swc_results$OC_factor),
-          labels = c("Ecosystem", "Leaf", "Drainage", "MAT", "MAP", "Elevation", "Clay%", "BD", "OC"),
-          label_size = 9,
-          vjust = 11.5, hjust = c(-1.3,-3.5,-1.725,-3.25,-3.25,-1.6, -2.15,-4.75,-4.75),
-          ncol = 3 )
-
-# ggsave("outputs/FigureS9.jpg", dpi = 300, width = 9, height = 10, units = "in")
-
-```
-
-
-### Residual plots for Pm surrogates
-
-```{r Figure-S14 SWC-Resicual plot}
-# reorganize data for plot
-bind_rows(
-  # SLR-SWC
-  swc_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = slr_pred, `Residual` = slr_resid) %>% 
-  mutate(Predictor = "SLR-SWC"),
-  # SLR-Pm
-  swc_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = slr_pm_pred, `Residual` = slr_pm_resid) %>% 
-  mutate(Predictor = "SLR-Pm"),
-  # Poly-SWC
-  swc_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = poly_pred, `Residual` = poly_resid) %>% 
-  mutate(Predictor = "Polynomial-SWC"),
-  # poly-Pm
-  swc_residual_results %>%
-  select(`Climate` = Climate_type, `Predicted_Rs` = poly_pm_pred, `Residual` = poly_pm_resid) %>% 
-  mutate(Predictor = "Polynomial-Pm")
-  ) %>% 
-  ggplot(aes(Predicted_Rs, Residual)) + geom_point(alpha = 0.1) +
-  facet_grid(rows = vars(Climate), cols = vars(Predictor)) +
-  labs(x = expression(Predicted~R[S]~"( g C m"^{-2}~s^{-1}~")"))
-
-ggsave("outputs/FigureS14.jpg", dpi = 300, width = 8, height = 8, units = "in")
-
-```
-
-
-## Diagnose code
-### find out those R2 difference too big for temperature surrogates
-```{r}
-t_results %>% select(Study_number,SiteID,first_R2, first_Tm_R2, p_b, p_Tm_b) %>% 
-    mutate(R2_diff = first_R2 - first_Tm_R2) %>% arrange(desc(R2_diff))
-```
-
-
-### find out those study and site have opposite relationship between Rs-vs-Taoil and Rs-vs-Tair
-```{r Tair not good surrogate}
-t_results %>% select(Study_number, SiteID, first_b, first_Tm_b, Lat, Lon, first_R2, p_b) %>% mutate(Slope_comparison = first_b * first_Tm_b) %>% 
-  filter(Slope_comparison < 0) -> tnosug_results
-
-tnosug_results %>% select(Lat) %>% min()
-tnosug_results %>% select(Lat) %>% max()
-
-# Make a map of these datasets
-library(sp)
-# install.packages("leaflet")
-library(leaflet)
-map <- data.frame(lon = tnosug_results$Lon, lat = tnosug_results$Lat)
-coordinates(map) <- ~lon + lat
-leaflet(map) %>% 
-  addMarkers() 
-
-# find out slope outlier studies
-t_results %>% select(Study_number, SiteID, first_b, first_Tm_b) %>% mutate(Slope_comparison = first_b * first_Tm_b) %>% 
-  filter(first_Tm_b < -2)
-```
-
-# Find out those study and site have opposite relationship between Rs-vs-swc and Rs-vs-Pm
-```{r}
-swc_results %>% select(Study_number, SiteID, first_b, first_pm_b) %>% mutate(Trend_comparison = first_b * first_pm_b) %>% 
-  filter(Trend_comparison < 0)
-```
-
-
-```{r}
-swc_results$first_R2 %>% mean()
-swc_results$poly_R2 %>% mean()
-swc_results$first_pm_R2 %>% mean()
-swc_results$poly_pm_R2 %>% mean(na.rm=T)
-```
-
-
-```{r}
-# threshold of VWC to relative water content = theta / poroacity
-swc_results %>% filter(p_poly_b <= 0.05 & p_c <= 0.05 & var_swc == "GWC") %>% select(thd_swc) %>% summarise(median(thd_swc) ) * 1.2313
-swc_results %>% filter(p_poly_b <= 0.05 & p_c <= 0.05 & var_swc == "VWC") %>% select(thd_swc) %>% summarise(median(thd_swc) )
-swc_results %>% filter(p_poly_b <= 0.05 & p_c <= 0.05 & var_swc == "VWC") %>% select(thd_swc) %>% summarise(median(thd_swc) / (1.2313/2.65))
-swc_results %>% filter(p_poly_pm_b <= 0.05 & p_pm_c <= 0.05) %>% select(thd_pm) %>% summarise(mpm = median(thd_pm)) * 12
-DGRsD_SWC %>% filter (SWC_Type == "VWC") %>% nrow()
-DGRsD_SWC %>% filter (SWC_Type == "GWC") %>% nrow()
-
-```
-
-
-
-```{r}
-# Rs vs GWC, if put all data together, show no relationship
-# due to to much site to site variability
-ggplot(subset(DGRsD, SWC_Type == "GWC")) +
-  aes(x = SWC, y = RS_Norm) +
-  geom_hex ( ) +
-  scale_fill_gradient(low = "gray", high = "blue") +
-  # geom_smooth(method = "lm") + 
-  xlab(expression(SWC~"("~"%"~")")) +
-  ylab(expression(R[s]~g~C~m^{-2}))
-
-# DGRsD %>% filter(SWC_Type == "VWC") %>% lm(RS_Norm ~ SWC) %>%  summary ()
-```
-
-
-
-
-```{r}
-# find out the sites both Pm and SWC can explian RS variability
-swc_results %>% filter (p_b < 0.05) %>% nrow
-swc_results %>% filter (p_pm_b < 0.05) %>% nrow
-swc_results %>% filter (p_b < 0.05 & p_pm_b < 0.05) %>% select(first_R2) %>% summarise(median(first_R2))
-swc_results %>% filter (p_b < 0.05 & p_pm_b < 0.05) %>% select(first_pm_R2) %>% summarise(median(first_pm_R2))
-swc_results %>% select(Study_number) %>% unique() %>% nrow()
-
-# plot only those 
-swc_results %>% filter(p_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% nrow() -> obs1
-swc_results %>% filter(p_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% 
-  ggplot(aes(x = paste0("SWC (n=", obs1, ")"), y = first_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = I(0.25)) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(SLR)")) + 
-  theme(axis.title.x = element_blank()
-        , axis.text=element_text(size=12)
-        , axis.title.y = element_text(size = 12))
-
-swc_results %>% filter(p_pm_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% nrow() -> obs2
-swc_results %>% filter(p_pm_b <= 0.05) %>% select (p_b, p_pm_b, first_R2, first_pm_R2) %>% 
-  ggplot(aes(x = paste0("Precipitation (n=", obs2, ")"), y = first_pm_R2)) + geom_violin() + 
-  # geom_jitter(shape = 16, position = position_jitter(0.2), col = 'gray') +
-  geom_quasirandom(alpha = I(0.25)) +
-  geom_boxplot(width = 0.1) + 
-  ylab(expression(R^2~"(SLR)")) +
-  theme(axis.title.x = element_blank()
-        , axis.text = element_text(size = 12)
-        , axis.title.y = element_text(size = 12))
-
-```
-
-
-
-```{r}
-DGRsD %>% select(SWC_Type) %>% unique()
-```
-
-```{r, fig.width=8, fig.height=5}
-# linear regression between prediction from Tsoil and Tair
-plot_grid(
-  t_residual_results %>% 
-    ggplot(aes(slr_tm_pred, slr_pred)) +
-    geom_point(alpha = 0.5) +
-    geom_abline(slope = 1) +
-    geom_smooth(method = "lm") +
-    labs(y = expression(Predicted~R[S]~by~Tsoil),
-         x = expression(Predicted~R[S]~by~Tair)),
-  
-  swc_residual_results %>% 
-    ggplot(aes(slr_pm_pred, slr_pred)) +
-    geom_point(alpha = 0.5) +
-    geom_abline(slope = 1) +
-    geom_smooth(method = "lm") +
-    labs(y = expression(Predicted~R[S]~by~SWC),
-         x = expression(Predicted~R[S]~by~Pm))
-)
-
-```
-
-```{r kmean cluster}
-# library(cluster)    # clustering algorithms
-# library(factoextra)
-
-# cluster analysis
-# https://uc-r.github.io/kmeans_clustering
-sub_swc_cluster <- sub_swc_results[,c(1,3)] 
-sub_swc_cluster <- scale(sub_swc_cluster)
-head(sub_swc_cluster)
-k4 <- kmeans(sub_swc_cluster, centers = 4, nstart = 25)
-fviz_cluster(k4, data = sub_swc_cluster)
-
-sub_swc_results %>%
-  mutate(cluster = k4$cluster) %>%
-  ggplot(aes(sub_swc_results$`p(Rs~SWC)`, sub_swc_results$`p(Rs~Pm)`, color = factor(cluster), label = group)) +
-  geom_text()
-
-```
 

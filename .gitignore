@@ -9,6 +9,7 @@ Surrogates.docx
 EcologicalModelling/
 Old/
 outputs/
+outputs_revision/
 .Rproj.user/
 Manuscript/
 
@@ -22,3 +23,5 @@ Surrogates_files/
 # project path
 # /G/My\ Drive/MyResearch/17.DGRsD/GlobalRsProject3
 .Rproj.user
+
+Surrogates_AFM_revision_rm.Rmd
