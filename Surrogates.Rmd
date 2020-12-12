@@ -177,7 +177,8 @@ ggplot(aes(MAT, MAP), data = GPT) +
   theme (legend.position = "none",
          legend.title = element_blank(),
          legend.background = element_rect(fill = alpha("white", 0), size = 0.75)) +
-  guides(fill = F, colour = guide_legend(override.aes = list(alpha=1))) -> 
+  guides(fill = F, colour = guide_legend(override.aes = list(alpha=1))) +
+  ylim(0, 2000) -> 
   p1
   
 ggplot(aes(MAT, MAP), data = GPT) + 
@@ -198,7 +199,8 @@ ggplot(aes(MAT, MAP), data = GPT) +
            axis.text.y = element_blank(),
            legend.background = element_rect(fill = alpha("white", 0), size = 0.75)) +
     scale_color_manual(labels = c("Tropic", "Arid", "Temperate", "Snow"),
-                       values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3")) -> 
+                       values = c("#E41A1C", "#377EB8", "#4DAF4A", "#984EA3")) +
+    ylim(0, 2000) -> 
   p2
 
 plot_grid(p1, p2, labels = c( "(a)", "(b)" )
