@@ -16,22 +16,21 @@ library(gridExtra)
 library(cowplot)
 library(knitr)
 library("ggpubr")
-library(tidyverse)
+# library(tidyverse)
 library(ggmap)
 library(maps)
 library(mapdata)
 library(hexbin)
 library(ggplot2)
 theme_set(theme_bw())
-library(devtools)
+# library(devtools)
 # install_github("vqv/ggbiplot")
-library(ggbiplot)
+# library(ggbiplot)
 library(rpart)
 library(egg)
 library(ggbeeswarm)
 # library(devtools)
 # install_github("vqv/ggbiplot")
-library(ggbiplot)
 
 source('functions.R')
 source('drake.R')
@@ -52,18 +51,27 @@ knitr::opts_chunk$set(results = 'hide', message = TRUE, include = TRUE,
 ## Prepare data
 ### Read model statistics for temperature surrogate and data processing
 ```{r temperature statistics, results='hide', message=FALSE, include=FALSE}
-# model statistics
-SRDB <- readd(SRDB)
-DGRsD <- readd(DGRsD)
-DGRsD_TS <- readd(DGRsD_TS)
-DGRsD_SWC <- readd(DGRsD_SWC)
-GPT <- readd(GPT)
+# load data
+SRDB_raw = read.csv(file.path(DATA_DIR,"srdb-data.csv"))
+DGRsD_raw = read.csv(file.path(DATA_DIR, "DGRsD.csv"))
+GPT = read.csv(file.path(DATA_DIR, "summarized_climate.csv"))
 GPT %>% 
   filter(MAT < 40 & MAT > -40 & MAP < 6000) ->
   GPT
 
+SRDB = make_groups_srdb(SRDB_raw)
+DGRsD = make_groups_dgrsd(DGRsD_raw)
+DGRsD_TS = rm_dgrsd_ts_null(DGRsD)
+DGRsD_TS %>% filter(!is.infinite(log_rs) & !is.na(log_rs)) -> DGRsD_TS
+DGRsD_SWC = rm_dgrsd_swc_null(DGRsD)
+DGRsD_SWC %>% filter(!is.infinite(log_rs)& !is.na(log_rs)) -> DGRsD_SWC
+
+t_results = t_model_sum(DGRsD_TS)
+swc_results <- pm_model_sum(DGRsD_SWC)
+
+# model statistics
 # prepare data for temperature surrogate analysis
-t_results <- readd(t_results)
+
 t_results %>% na.omit() -> t_results
 # t_results %>% rename (Study_number = sub_site.Study_number.1., Measure_year = sub_siteID.Measure_Year.1., SiteID = var_site.j.) -> t_results
 colnames(t_results)[1:3] <- c("Study_number", "Measure_year", "SiteID")
@@ -96,7 +104,6 @@ t_results %>% filter (poly_c > 0) %>% select (Study_number, poly_c) %>% unique()
 
 
 # Prepare data for precipitation as surrogate of SWC analysis
-swc_results <- readd(swc_results)
 swc_results %>% na.omit() -> swc_results
 # swc_results %>% rename(Study_number = sub_site.Study_number.1., SiteID = var_site.j., Measure_year = sub_siteID.Measure_Year.1. ) -> swc_results
 colnames(swc_results)[1:3] <- c("Study_number", "Measure_year", "SiteID")
@@ -125,8 +132,8 @@ SRDB %>% select(Study_number, SiteID, Biome_group, Ecosystem_group, Leaf_group, 
   right_join(swc_results, by = c("Study_number", "SiteID")) -> swc_results
 
 # prepare data for residual analysis
-t_residual_results <- readd(t_residual_results)
-swc_residual_results <- readd(swc_residual_results)
+# t_residual_results <- readd(t_residual_results)
+# swc_residual_results <- readd(swc_residual_results)
 ```
 
 
@@ -137,9 +144,8 @@ swc_results = get_clayOCBD(swc_results, j=2, "Clay")
 swc_results = get_clayOCBD(swc_results, j=3, "OC")
 ```
 
-
 ## Sample reresentative figure
-```{r Figure 1, fig.height=4, fig.width=8}
+```{r Figure 1, fig.height=8, fig.width=10}
 
 # density
 ggplot(aes(MAT), data = GPT) + geom_histogram() + 
@@ -203,13 +209,53 @@ ggplot(aes(MAT, MAP), data = GPT) +
     ylim(0, 2000) -> 
   p2
 
-plot_grid(p1, p2, labels = c( "(a)", "(b)" )
+plot_grid(p1, p2
           , vjust = 3, hjust = c(-4, -1.65), ncol = 2,
-          rel_widths = c(1,1.15))
+          rel_widths = c(1,1.15)) -> 
+  panel_below
 
 # RColorBrewer::brewer.pal(8, "Set1") # get color code
-# ggsave("outputs/Figure1. Site_distribution.jpg", width = 8, height = 4, dpi = 300, units = "in")
 
+```
+
+
+```{r, fig.height=6, fig.width=10}
+# map to show the Rh sites
+# bbox <- make_bbox(lon = c(-160, 160), lat = c(-50, 70)) # make a coordinate box 
+# map <- get_map(location = bbox, source = "stamen", maptype = "terrain") # load map from online
+# 
+# bind_rows(
+#   DGRsD_TS %>% 
+#     dplyr::select(Latitude, Longitude) %>% 
+#     dplyr::count(Latitude, Longitude) %>% 
+#     mutate(Data = "Tsoil"),
+# 
+#   DGRsD_SWC %>% 
+#     dplyr::select(Latitude, Longitude) %>% 
+#     dplyr::count(Latitude, Longitude) %>% 
+#     mutate(Data = "SWC")) ->
+#   map_data
+
+ggmap(map) + 
+  geom_point(data = map_data, aes(x = Longitude, y = Latitude, size = n, shape = Data, col = Data), 
+             alpha = 0.6) + 
+  scale_shape_manual(values = c(1, 4)) +
+  scale_color_manual(values = c("blue", "red")) +
+  labs(x = "Longitude", y = "Latitude") +
+  theme(axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.text.y=element_blank(),
+        axis.ticks.y=element_blank()) +
+  scale_size_continuous (name = "Sites (n)")  ->
+  p0
+
+library(patchwork) 
+# p0 / (p1 | p2) 
+# + plot_annotation(tag_levels = "a")
+plot_grid(p0, panel_below, ncol = 1,
+          rel_heights = c(1.25,1)) 
+
+ggsave("outputs/Figure1. Site_distribution.jpg", width = 8, height = 6, dpi = 300, units = "in")
 ```
 
 
@@ -275,7 +321,7 @@ t_results %>% mutate(Dif_poly = case_when(poly_R2 - poly_Tm_R2 < -0.1 ~ "Low"
 
 p4 = p4 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2), "%")), position = position_stack(vjust = 0.5)) +
   scale_fill_manual(values=c("violet", "orange", "gray")) +
-  labs(x = NULL, y = NULL, fill = NULL, title = expression("(d) PR"~R^{2}~"difference")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = expression("(d) NLR"~R^{2}~"difference")) +
   theme_classic() + theme(axis.line = element_blank(),
           axis.text = element_blank(),
           axis.ticks = element_blank(),
@@ -290,7 +336,7 @@ t_results %>% mutate(p_group = ifelse(p_poly_b < 0.05 | p_c < 0.05, "p<0.5", "p>
 
 p5 = p5 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2), "%")), position = position_stack(vjust = 0.5)) +
   scale_fill_manual(values=c("pink", "cyan")) +
-  labs(x = NULL, y = NULL, fill = NULL, title = expression("(e) PR(R"[S]~"-vs-T"[soil]~")")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = expression("(e) NLR(R"[S]~"-vs-T"[soil]~")")) +
   theme_classic() + theme(axis.line = element_blank(),
           axis.text = element_blank(),
           axis.ticks = element_blank(),
@@ -306,7 +352,7 @@ t_results %>% mutate(p_group = ifelse(p_poly_Tm_b < 0.05 | p_Tm_c < 0.05, "p<0.5
 
 p6 = p6 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2), "%")), position = position_stack(vjust = 0.5)) +
   scale_fill_manual(values=c("pink", "cyan")) +
-  labs(x = NULL, y = NULL, fill = NULL, title = expression("(f) PR(R"[S]~"-vs-T"[air]~")")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = expression("(f) NLR(R"[S]~"-vs-T"[air]~")")) +
   theme_classic() + theme(axis.line = element_blank(),
           axis.text = element_blank(),
           axis.ticks = element_blank(),
@@ -339,7 +385,7 @@ bind_rows(
   t_results %>% select(`Tsoil` = poly_b, `Tair` = poly_Tm_b, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
     # filter(Tsoil > -100 & Tsoil < 10) %>% # remove two outlier, that one significantly effect the relationship
-    mutate(Model = 'PR', Model_stat = 'Slope')
+    mutate(Model = 'NLR', Model_stat = 'Slope')
 ) -> t_surrogate_beta
 t_surrogate_beta <- outlier_test(t_surrogate_beta, t_surrogate_beta$Tair, t_surrogate_beta$Tsoil)
 t_surrogate_beta <- t_surrogate_beta %>% filter(Tsoil < 1.5)  #4608 and 4609
@@ -352,7 +398,7 @@ bind_rows(
   
   t_results %>% select(`Tsoil` = poly_R2, `Tair` = poly_Tm_R2, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
-    mutate(Model = 'PR', Model_stat = 'R2')
+    mutate(Model = 'NLR', Model_stat = 'R2')
 ) -> t_surrogate_r2
 t_surrogate_r2 <- outlier_test(t_surrogate_r2, t_surrogate_r2$Tair, t_surrogate_r2$Tsoil)
 
@@ -366,7 +412,7 @@ bind_rows(
   t_results %>% select(`Tsoil` = poly_RMSE, `Tair` = poly_Tm_RMSE, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>%
     filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>%
     filter(Tsoil < 2) %>%
-    mutate(Model = 'PR', Model_stat = 'RMSE')
+    mutate(Model = 'NLR', Model_stat = 'RMSE')
 ) -> t_surrogate_rmse
 t_surrogate_rmse <- outlier_test(t_surrogate_rmse, t_surrogate_rmse$Tair, t_surrogate_rmse$Tsoil)
 
@@ -378,7 +424,7 @@ bind_rows(
   
   t_results %>% select(`Tsoil` = poly_d, `Tair` = poly_Tm_d, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
-    mutate(Model = 'PR', Model_stat = 'd')
+    mutate(Model = 'NLR', Model_stat = 'd')
 ) -> t_surrogate_d
 t_surrogate_d <- outlier_test(t_surrogate_d, t_surrogate_d$Tair, t_surrogate_d$Tsoil)
   
@@ -390,7 +436,7 @@ bind_rows(
   
   t_results %>% select(`Tsoil` = poly_EF, `Tair` = poly_Tm_EF, p_poly_b, p_poly_Tm_b, p_c, p_Tm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05 & p_poly_Tm_b < 0.05 | p_Tm_c < 0) %>% 
-    mutate(Model = 'PR', Model_stat = 'EF')
+    mutate(Model = 'NLR', Model_stat = 'EF')
 ) -> t_surrogate_ef
 
 t_surrogate_ef <- outlier_test(t_surrogate_ef, t_surrogate_ef$Tair, t_surrogate_ef$Tsoil)
@@ -476,7 +522,7 @@ t_surrogate_beta %>% filter(Tsoil > 10)
 ## Precipitation as a surrogate of SWC
 ```{r SWC surrogate percentage summary}
 
-# only 171 site with significant polynomial trend
+# only XXX site with significant polynomial trend
 swc_results %>% select(`SWC` = poly_d, `Pm` = poly_pm_d, p_poly_b, p_poly_pm_b, p_c, p_pm_c) %>% 
   filter(p_poly_b < 0.05 | p_c < 0.05)
 
@@ -546,7 +592,7 @@ swc_results %>% mutate(Dif_poly = case_when(poly_R2 - poly_pm_R2 < -0.1 ~ "Low"
 
 p4 = p4 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2), "%")), position = position_stack(vjust = 0.5)) +
   scale_fill_manual(values=c("violet", "orange", "gray")) +
-  labs(x = NULL, y = NULL, fill = NULL, title = expression("(d) PR"~R^{2}~"difference")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = expression("(d) NLR"~R^{2}~"difference")) +
   theme_classic() + theme(axis.line = element_blank(),
           axis.text = element_blank(),
           axis.ticks = element_blank(),
@@ -561,7 +607,7 @@ swc_results %>% mutate(p_group = ifelse((p_poly_b < 0.05 | p_c < 0.05), "p<0.5",
 
 p5 = p5 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2), "%")), position = position_stack(vjust = 0.5)) +
   scale_fill_manual(values=c("pink", "cyan")) +
-  labs(x = NULL, y = NULL, fill = NULL, title = expression("(e) PR(R"[S]~"-vs-"~SWC~")")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = expression("(e) NLR(R"[S]~"-vs-"~SWC~")")) +
   theme_classic() + theme(axis.line = element_blank(),
           axis.text = element_blank(),
           axis.ticks = element_blank(),
@@ -577,7 +623,7 @@ swc_results %>% mutate(p_group = ifelse(p_poly_pm_b < 0.05 | p_pm_c < 0.05, "p<0
 
 p6 = p6 + coord_polar("y", start=0) + geom_text(aes(label = paste0(round(freq, 2), "%")), position = position_stack(vjust = 0.5)) +
   scale_fill_manual(values=c("pink", "cyan")) +
-  labs(x = NULL, y = NULL, fill = NULL, title = expression("(f) PR(R"[S]~"-vs-"~P[m]~")")) +
+  labs(x = NULL, y = NULL, fill = NULL, title = expression("(f) NLR(R"[S]~"-vs-"~P[m]~")")) +
   theme_classic() + theme(axis.line = element_blank(),
           axis.text = element_blank(),
           axis.ticks = element_blank(),
@@ -606,7 +652,7 @@ bind_rows(
     filter(p_poly_b < 0.05 | p_c < 0.05) %>% 
     filter(p_poly_pm_b < 0.05 | p_pm_c < 0.05) %>% 
     filter(SWC > -30) %>% # remove one outlier
-    mutate(Model = 'PR', Model_stat = 'Slope')
+    mutate(Model = 'NLR', Model_stat = 'Slope')
 ) -> swc_surrogate_beta
 swc_surrogate_beta <- outlier_test(swc_surrogate_beta,swc_surrogate_beta$Pm, swc_surrogate_beta$SWC) 
 
@@ -619,7 +665,7 @@ bind_rows(
   swc_results %>% select(`SWC` = poly_R2, `Pm` = poly_pm_R2, p_poly_b, p_poly_pm_b, p_c, p_pm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05) %>% 
     filter(p_poly_pm_b < 0.05 | p_pm_c < 0.05) %>% 
-    mutate(Model = 'PR', Model_stat = 'R2')
+    mutate(Model = 'NLR', Model_stat = 'R2')
 ) -> swc_surrogate_r2
 swc_surrogate_r2 <- outlier_test(swc_surrogate_r2, swc_surrogate_r2$Pm, swc_surrogate_r2$SWC)
 
@@ -632,7 +678,7 @@ bind_rows(
   swc_results %>% select(`SWC` = poly_RMSE, `Pm` = poly_pm_RMSE, p_poly_b, p_poly_pm_b, p_c, p_pm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05) %>% 
     filter(p_poly_pm_b < 0.05 | p_pm_c < 0.05) %>% 
-    mutate(Model = 'PR', Model_stat = 'RMSE')
+    mutate(Model = 'NLR', Model_stat = 'RMSE')
 ) -> swc_surrogate_rmse
 swc_surrogate_rmse <- outlier_test(swc_surrogate_rmse, swc_surrogate_rmse$Pm, swc_surrogate_rmse$SWC)
 
@@ -645,7 +691,7 @@ bind_rows(
   swc_results %>% select(`SWC` = poly_d, `Pm` = poly_pm_d, p_poly_b, p_poly_pm_b, p_c, p_pm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05) %>% 
     filter(p_poly_pm_b < 0.05 | p_pm_c < 0.05) %>%  
-    mutate(Model = 'PR', Model_stat = 'd')
+    mutate(Model = 'NLR', Model_stat = 'd')
 ) -> swc_surrogate_d
 swc_surrogate_d <- outlier_test(swc_surrogate_d, swc_surrogate_d$Pm, swc_surrogate_d$SWC)
 
@@ -658,7 +704,7 @@ bind_rows(
   swc_results %>% select(`SWC` = poly_EF, `Pm` = poly_pm_EF, p_poly_b, p_poly_pm_b, p_c, p_pm_c) %>% 
     filter(p_poly_b < 0.05 | p_c < 0.05) %>% 
     filter(p_poly_pm_b < 0.05 | p_pm_c < 0.05) %>%  
-    mutate(Model = 'PR', Model_stat = 'EF')
+    mutate(Model = 'NLR', Model_stat = 'EF')
 ) -> swc_surrogate_ef 
 
 swc_surrogate_ef <- outlier_test(swc_surrogate_ef, swc_surrogate_ef$Pm, swc_surrogate_ef$SWC)

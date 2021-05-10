@@ -56,12 +56,14 @@ make_groups_dgrsd <- function(sdata) {
 # remove rows when soil temperature is null
 rm_dgrsd_ts_null <- function (sdata) {
   sdata %>% filter(!is.na(Tsoil) & !is.na(Tm_Del) & !is.na(RS_Norm)) -> sdata
+  sdata %>% mutate(log_rs = log(RS_Norm)) -> sdata
   return(sdata)
 }
 
 # remove rows when soil water content is null
 rm_dgrsd_swc_null <- function (sdata) {
   sdata %>% filter(SWC_Type == "VWC" | SWC_Type == "GWC") %>% filter (!is.na(SWC) & !is.na(Pm_Del) & !is.na(RS_Norm)) -> sdata
+  sdata %>% mutate(log_rs = log(RS_Norm)) -> sdata
   return(sdata)
 }
 
@@ -97,12 +99,13 @@ t_model_sum <- function (DGRsD_TS) {
     for (j in 1:length(var_site)) {
       sub_siteID <- subset(sub_study, SiteID == var_site[j])
       # aggregate by month - make sure Tsoil and Tair all both in monthly time scale
-      sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, Tsoil, Tm_Del) %>% 
+      sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, Tsoil, Tm_Del, log_rs) %>% 
         group_by(Study_number, SiteID, Measure_Month) %>%
         summarise_each(funs(mean = mean), RS_Norm,
                   Tsoil,
-                  Tm_Del) -> sub_site
-      colnames(sub_site) <- c("Study_number", "SiteID", "Measure_Month", "RS_Norm", "Tsoil", "Tm_Del")
+                  Tm_Del,
+                  log_rs) -> sub_site
+      colnames(sub_site) <- c("Study_number", "SiteID", "Measure_Month", "RS_Norm", "Tsoil", "Tm_Del", "log_rs")
       
       if (nrow(sub_site) < 6) {next} else {
         
@@ -124,7 +127,7 @@ t_model_sum <- function (DGRsD_TS) {
         slr_EF <- 1 - sum(sub_site$slr_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
         
         # polynomial model
-        poly_lm <- lm(RS_Norm ~ Tsoil + I(Tsoil^2), data = sub_site)
+        poly_lm <- lm(log_rs ~ Tsoil + I(Tsoil^2), data = sub_site)
         poly_a <- summary(poly_lm)$coefficients[1,1] %>% round(6)
         poly_b <- summary(poly_lm)$coefficients[2,1] %>% round(6)
         poly_c <- summary(poly_lm)$coefficients[3,1] %>% round(6)
@@ -134,11 +137,11 @@ t_model_sum <- function (DGRsD_TS) {
         # Rs_Ts_poly <- mean(poly_lm$fitted.values)
         
         # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
-        sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-RS_Norm)) -> sub_site
+        sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-log_rs)) -> sub_site
         poly_E <- round(sum(sub_site$poly_S_M) / obs, 6)
         poly_RMSE <- (sum(sub_site$poly_S_M^2) / obs)^0.5 %>% round(3)
-        poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pred)))^2)) %>% round(3)
-        poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$log_rs)) + abs(sub_site$log_rs-mean(sub_site$poly_pred)))^2)) %>% round(3)
+        poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$log_rs - mean(sub_site$log_rs))^2 )
         
         
         # Ts vs Tair: first order lm model
@@ -159,10 +162,12 @@ t_model_sum <- function (DGRsD_TS) {
         # add SLR curve
         curve( first_a + first_b * x, min(sub_site$Tsoil), max(sub_site$Tsoil), col = "black", lty = 3, lwd = 2, add = T )
         # add polynomial curve, predict y using modp
-        curve (poly_a + poly_b * x + poly_c * x^2, min(sub_site$Tsoil), max(sub_site$Tsoil), col = "black", lty = 1, lwd = 2, add = T)
+        curve (exp(poly_a + poly_b * x + poly_c * x^2),
+               min(sub_site$Tsoil), max(sub_site$Tsoil), col = "black", lty = 1, lwd = 2, add = T)
         
         mtext(side = 1, text = expression(Soil~temperature~"("~degree~C~")"), line = 1.75, cex=1, outer = F)
-        mtext(side = 2, text = expression(Soil~respiration~"("~g~C~m^{-2}~day^{-1}~")"), line = 2.0, cex=1.0, outer = F, las = 0)
+        mtext(side = 2, text = expression(Soil~respiration~"("~g~C~m^{-2}~day^{-1}~")"),
+              line = 2.0, cex=1.0, outer = F, las = 0)
         
         
         # Built statistic models and output statistic parameters ***************************************************
@@ -184,7 +189,7 @@ t_model_sum <- function (DGRsD_TS) {
         
         # polynomial equation of Tair vs Rs
         # poly_pm <- try(lm(RS_Norm ~ poly(Pm_Del,2) , data = sub_site))
-        poly_Tm <- try(lm(RS_Norm ~ Tm_Del + I(Tm_Del^2), data = sub_site))
+        poly_Tm <- try(lm(log_rs ~ Tm_Del + I(Tm_Del^2), data = sub_site))
         poly_parameter_c <- try(summary(poly_Tm)$coefficients[3,1] )
         
         # error handle, sometimes there are no polynomial model can be simulated, then set model parameters to NA
@@ -210,11 +215,11 @@ t_model_sum <- function (DGRsD_TS) {
           poly_Tm_R2 <- summary(poly_Tm)$adj.r.squared %>% round(6) 
           
           # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
-          sub_site %>% mutate(poly_Tm_pred = predict(poly_Tm), poly_resid = residuals(poly_Tm), poly_Tm_S_M = (poly_Tm_pred-RS_Norm)) -> sub_site
+          sub_site %>% mutate(poly_Tm_pred = predict(poly_Tm), poly_resid = residuals(poly_Tm), poly_Tm_S_M = (poly_Tm_pred-log_rs)) -> sub_site
           poly_Tm_E <- round(sum(sub_site$poly_Tm_S_M) / obs, 6)
           poly_Tm_RMSE <- (sum(sub_site$poly_Tm_S_M^2) / obs)^0.5 %>% round(3)
-          poly_Tm_d <- (1- sum(sub_site$poly_Tm_S_M^2)/sum((abs(sub_site$poly_Tm_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_Tm_pred)))^2)) %>% round(3)
-          poly_Tm_EF <- 1 - sum(sub_site$poly_Tm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+          poly_Tm_d <- (1- sum(sub_site$poly_Tm_S_M^2)/sum((abs(sub_site$poly_Tm_pred - mean(sub_site$log_rs)) + abs(sub_site$log_rs-mean(sub_site$poly_Tm_pred)))^2)) %>% round(3)
+          poly_Tm_EF <- 1 - sum(sub_site$poly_Tm_S_M^2)/sum( (sub_site$log_rs - mean(sub_site$log_rs))^2 )
           
           lm_sum = data.frame(sub_site$Study_number[1], sub_siteID$Measure_Year[1], var_site[j]
                               , first_a, first_b, p_b, first_R2
@@ -247,7 +252,8 @@ t_model_sum <- function (DGRsD_TS) {
         # add simple linear model and polynomial model curves
         curve( first_Tm_a + first_Tm_b * x, min(sub_site$Tm_Del), max(sub_site$Tm_Del), col = "black", lty = 3, lwd = 2, add = T )
         # add polynomial curve, predict y using modp
-        curve (poly_Tm_a + poly_Tm_b * x + poly_Tm_c * x^2, min(sub_site$Tm_Del), max(sub_site$Tm_Del), col = "black", lty = 1, lwd = 2, add = T)
+        curve (exp(poly_Tm_a + poly_Tm_b * x + poly_Tm_c * x^2),
+               min(sub_site$Tm_Del), max(sub_site$Tm_Del), col = "black", lty = 1, lwd = 2, add = T)
         
         mtext(side = 1, text = expression(Air~temperature~"("~degree~C~")"), line = 1.75, cex=1, outer = F)
         mtext(side = 2, text = expression(Soil~respiration~"("~g~C~m^{-2}~day^{-1}~")"), line = 2.0, cex=1.0, outer = F, las = 0)
@@ -296,13 +302,14 @@ pm_model_sum <- function (DGRsD_SWC) {
       var_swc <- sub_siteID$SWC_Type[1]
       
       # aggregate by month - make sure Tsoil and Tair all both in monthly time scale
-      sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, SWC, Pm_Del) %>% 
+      sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, SWC, Pm_Del, log_rs) %>% 
         group_by(Study_number, SiteID, Measure_Month) %>% 
         summarise_each (funs(mean = mean), RS_Norm,
                   SWC,
-                  Pm_Del) -> sub_site
+                  Pm_Del,
+                  log_rs) -> sub_site
       
-      colnames(sub_site) <- c("Study_number", "SiteID", "Measure_Month", "RS_Norm", "SWC", "Pm_Del")
+      colnames(sub_site) <- c("Study_number", "SiteID", "Measure_Month", "RS_Norm", "SWC", "Pm_Del", "log_rs")
       
       if (nrow(sub_site) < 6) {next} else {
         
@@ -323,7 +330,7 @@ pm_model_sum <- function (DGRsD_SWC) {
         slr_EF <- 1 - sum(sub_site$slr_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
           
         # swc vs Rs: polynomial model
-        poly_lm <- lm(RS_Norm ~ SWC + I(SWC^2), data = sub_site)
+        poly_lm <- lm(log_rs ~ SWC + I(SWC^2), data = sub_site)
         poly_a <- summary(poly_lm)$coefficients[1,1] %>% round(6)
         poly_b <- summary(poly_lm)$coefficients[2,1] %>% round(6)
         poly_c <- summary(poly_lm)$coefficients[3,1] %>% round(6)
@@ -332,11 +339,11 @@ pm_model_sum <- function (DGRsD_SWC) {
         poly_R2 <- summary(poly_lm)$adj.r.squared %>% round(6)
         
         # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
-        sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-RS_Norm)) -> sub_site
+        sub_site %>% mutate(poly_pred = predict(poly_lm), poly_resid = residuals(poly_lm), poly_S_M = (poly_pred-log_rs)) -> sub_site
         poly_E <- round(sum(sub_site$poly_S_M) / obs, 6)
         poly_RMSE <- (sum(sub_site$poly_S_M^2) / obs)^0.5 %>% round(3)
-        poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pred)))^2)) %>% round(3)
-        poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+        poly_d <- (1- sum(sub_site$poly_S_M^2)/sum((abs(sub_site$poly_pred - mean(sub_site$log_rs)) + abs(sub_site$log_rs-mean(sub_site$poly_pred)))^2)) %>% round(3)
+        poly_EF <- 1 - sum(sub_site$poly_S_M^2)/sum( (sub_site$log_rs - mean(sub_site$log_rs))^2 )
         
         # SWC vs Pm: first order lm model
         SWCPm_lm <- lm(SWC ~ Pm_Del, data = sub_site)
@@ -354,13 +361,15 @@ pm_model_sum <- function (DGRsD_SWC) {
              , col = "gray" )
         
         mtext(side = 1, text = paste0( var_swc, " ( % )" ), line = 1.75, cex=1, outer = F)
-        mtext(side = 2, text = expression(Soil~respiration~"("~g~C~m^{-2}~day^{-1}~")"), line = 2.0, cex=1.0, outer = F, las = 0)
+        mtext(side = 2, text = expression(Soil~respiration~"("~g~C~m^{-2}~day^{-1}~")"),
+              line = 2.0, cex=1.0, outer = F, las = 0)
         
         # add SLR curve
         curve( first_a + first_b * x, min(sub_site$SWC), max(sub_site$SWC), col = "black", lty = 3, lwd = 2, add = T )
         
         # add polynomial curve, predict y using modp
-        curve (poly_a + poly_b * x + poly_c * x^2, min(sub_site$SWC), max(sub_site$SWC), col = "black", lty = 1, lwd = 2, add = T)
+        curve (exp(poly_a + poly_b * x + poly_c * x^2),
+               min(sub_site$SWC), max(sub_site$SWC), col = "black", lty = 1, lwd = 2, add = T)
         
         # https://stats.stackexchange.com/questions/95939/how-to-interpret-coefficients-from-a-polynomial-model-fit
         # calculate the new x values using predict.poly()
@@ -389,7 +398,7 @@ pm_model_sum <- function (DGRsD_SWC) {
         
         # polynomial equation of Pm vs Rs
         # poly_pm <- try(lm(RS_Norm ~ poly(Pm_Del,2) , data = sub_site))
-        poly_pm <- try(lm(RS_Norm ~ Pm_Del + I(Pm_Del^2), data = sub_site))
+        poly_pm <- try(lm(log_rs ~ Pm_Del + I(Pm_Del^2), data = sub_site))
         poly_parameter_c <- try(summary(poly_pm)$coefficients[3,1] )
         
         if (is(poly_pm, "try-error") | is(poly_parameter_c, "try-error")) {
@@ -414,11 +423,11 @@ pm_model_sum <- function (DGRsD_SWC) {
           poly_pm_R2 <- summary(poly_pm)$adj.r.squared %>% round(6) 
           
           # Yang et al, 2014. An evaluation of the statistical methods for testing the performance of crop models with observed data. Agricultural Systems, 127: 81-89.
-          sub_site %>% mutate(poly_pm_pred = predict(poly_pm), poly_resid = residuals(poly_pm), poly_pm_S_M = (poly_pm_pred-RS_Norm)) -> sub_site
+          sub_site %>% mutate(poly_pm_pred = predict(poly_pm), poly_resid = residuals(poly_pm), poly_pm_S_M = (poly_pm_pred-log_rs)) -> sub_site
           poly_pm_E <- round(sum(sub_site$poly_pm_S_M) / obs, 6)
           poly_pm_RMSE <- (sum(sub_site$poly_pm_S_M^2) / obs)^0.5 %>% round(3)
-          poly_pm_d <- (1- sum(sub_site$poly_pm_S_M^2)/sum((abs(sub_site$poly_pm_pred - mean(sub_site$RS_Norm)) + abs(sub_site$RS_Norm-mean(sub_site$poly_pm_pred)))^2)) %>% round(3)
-          poly_pm_EF <- 1 - sum(sub_site$poly_pm_S_M^2)/sum( (sub_site$RS_Norm - mean(sub_site$RS_Norm))^2 )
+          poly_pm_d <- (1- sum(sub_site$poly_pm_S_M^2)/sum((abs(sub_site$poly_pm_pred - mean(sub_site$log_rs)) + abs(sub_site$log_rs-mean(sub_site$poly_pm_pred)))^2)) %>% round(3)
+          poly_pm_EF <- 1 - sum(sub_site$poly_pm_S_M^2)/sum( (sub_site$log_rs - mean(sub_site$log_rs))^2 )
           
           # put results together and hold it at results
           lm_sum = data.frame(sub_site$Study_number[1], sub_siteID$Measure_Year[1], var_site[j], var_swc
@@ -454,7 +463,8 @@ pm_model_sum <- function (DGRsD_SWC) {
         curve( first_pm_a + first_pm_b * x, min(sub_site$Pm_Del), max(sub_site$Pm_Del), col = "black", lty = 3, lwd = 2, add = T )
         # add polynomial curve, predict y using modp
         if (is.na(poly_pm_c)) {next} else {
-          curve (poly_pm_a + poly_pm_b * x + poly_pm_c * x^2, min(sub_site$Pm_Del), max(sub_site$Pm_Del), col = "black", lty = 1, lwd = 2, add = T)
+          curve (exp(poly_pm_a + poly_pm_b * x + poly_pm_c * x^2),
+                 min(sub_site$Pm_Del), max(sub_site$Pm_Del), col = "black", lty = 1, lwd = 2, add = T)
         }
         
         mtext(side = 1, text = expression( Pm~"( mm )" ), line = 1.75, cex=1.0, outer = F)

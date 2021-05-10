@@ -404,5 +404,96 @@ ggbiplot(mtcars.pca,ellipse=TRUE,  labels=rownames(mtcars), groups=mtcars.countr
 
 # Use PCA to detect which environmental factor effect the surrogates of temperature
 
+#-----------------------------------------------------------------------------------------------------------------
+# test nonliner model
+#-----------------------------------------------------------------------------------------------------------------
+drake::readd(DGRsD) %>% filter(Study_number == 20) %>% 
+  dplyr::select(RS_Norm, Tsoil) %>% 
+  mutate(log_rs = log(RS_Norm)) -> DGRsD_test
 
+## second order exponential model
+soe_mod = nls( RS_Norm~ F * exp(a * Tsoil - b * Tsoil^2) 
+               , data = DGRsD_test, start = list(F = 1.4, a = 0.035, b = 0.0001), trace = TRUE)
+
+summary(soe_mod)  
+
+
+DGRsD_test %>% 
+  ggplot(aes(Tsoil, RS_Norm)) + 
+  geom_point() +
+  geom_smooth(method = "lm") +
+  stat_function(fun = function(x) { 0.5199 * exp(0.0712*x - 0.0012*x^2) },
+                col = 'red', size = 1.5, alpha = 0.5) +  # curve for soe_mod
+  stat_function(fun = function(x) { exp(-0.562 + 0.052765*x - 0.000653*x^2) },
+                col = 'green', size = 1.5, alpha = 0.5)
+
+## second order exponential model with log transfer
+soe_log_mod =  nls(log_rs ~ (a + b * Tsoil - c * Tsoil^2), data = DGRsD_test,
+                   start = list(a = 0.4, b = 0.035, c = 0.0001), trace = TRUE)
+
+summary(soe_log_mod)
+summary(soe_log_mod)$coefficients[1,1]
+summary(soe_log_mod)$coefficients[2,1]
+summary(soe_log_mod)$coefficients[3,1]
+
+plot(DGRsD_test$log_rs ~ DGRsD_test$Tsoil
+     , main = ""
+     , xlab = ""
+     , ylab = ""
+     , pch = 16
+     , col = "gray",
+     xlim = c(0,30))
+
+# add simple linear model and polynomial model curves
+# curve( first_Tm_a + first_Tm_b * x, min(sub_site$Tm_Del), max(sub_site$Tm_Del), col = "black", lty = 3, lwd = 2, add = T )
+# add polynomial curve, predict y using modp
+curve (-0.562 + 0.052765 * x - 0.000653 * x^2, 0, max(DGRsD_test$Tsoil), col = "black", lty = 1, lwd = 2, add = T)
+
+
+## second order exponential model with log transfer
+soe_log_mod =  nls(log_rs ~ (a + b * Tsoil - c * Tsoil^2), data = DGRsD_test,
+                   start = list(a = 0.4, b = 0.035, c = 0.0001), trace = TRUE)
+
+
+## 
+poly_Tsoil <- try(lm(log_rs ~ Tsoil + I(Tsoil^2), data = DGRsD_test))
+summary(poly_Tsoil)
+
+plot(DGRsD_test$log_rs ~ DGRsD_test$Tsoil
+     , main = ""
+     , xlab = ""
+     , ylab = ""
+     , pch = 16
+     , col = "gray",
+     xlim = c(0,30))
+curve (-0.562 + 0.052765 * x - 0.00065 * x^2, 0, max(DGRsD_test$Tsoil), col = "black", lty = 1, lwd = 2, add = T)
+
+
+###################################### Debug
+var_study <- unique (DGRsD_TS$Study_number) %>% sort()
+t_results <- data.frame()
+
+i = 388
+j = 1
+
+sub_study <- subset(DGRsD_TS, Study_number == var_study[i])
+var_site <- unique (sub_study$SiteID)
+
+sub_siteID <- subset(sub_study, SiteID == var_site[j])
+# aggregate by month - make sure Tsoil and Tair all both in monthly time scale
+sub_siteID %>% select(Study_number, SiteID, Measure_Month, RS_Norm, Tsoil, Tm_Del, log_rs) %>% 
+  group_by(Study_number, SiteID, Measure_Month) %>%
+  summarise_each(funs(mean = mean), RS_Norm,
+                 Tsoil,
+                 Tm_Del,
+                 log_rs) -> sub_site
+colnames(sub_site) <- c("Study_number", "SiteID", "Measure_Month", "RS_Norm", "Tsoil", "Tm_Del", "log_rs")
+
+
+
+
+plot_grid(p0, panel_below, ncol = 1,
+          rel_heights = c(1,1)) 
+
+ggsave("outputs/Figure1. Site_distribution.jpg", width = 7, height = 6, dpi = 300, units = "in")
 

@@ -54,15 +54,7 @@ get_clayOCBD <- function (sdata1, j, var_name) {
   return (sdata1)
 }
 
-# load data
-# SRDB_raw = read.csv(file.path(DATA_DIR,"srdb-data.csv"))
-# DGRsD_raw = read.csv(file.path(DATA_DIR, "DGRsD.csv"))
-# GPT = read.csv(file.path(DATA_DIR, "summarized_climate.csv"))
-# 
-# SRDB = make_groups_srdb(SRDB_raw)
-# DGRsD = make_groups_dgrsd(DGRsD_raw)
-# DGRsD_TS = rm_dgrsd_ts_null(DGRsD)
-# DGRsD_SWC = rm_dgrsd_swc_null(DGRsD)
+
 
 #*****************************************************************************************************************
 # drake
@@ -85,15 +77,15 @@ plan = drake_plan(
   # We also calculated several other model evaluation statics (E, d, EF etc) for model comparison
   t_results = t_model_sum(DGRsD_TS), 
   # Precipitation for precipitation (Pm) as a surrogate of soil water content (swc), same logic as above
-  swc_results = pm_model_sum(DGRsD_SWC),
+  # swc_results = pm_model_sum(DGRsD_SWC)
   
   # outputs with residue
-  t_residual_results = t_residual_sum(DGRsD_TS),
-  swc_residual_results = swc_residual_sum(DGRsD_SWC)
+  # t_residual_results = t_residual_sum(DGRsD_TS),
+  # swc_residual_results = swc_residual_sum(DGRsD_SWC)
 )
 
 # rm(list = ls())
 # clean(plan)
-make(plan)
+# make(plan)
 # config <- make(plan)
 # vis_drake_graph(config)
